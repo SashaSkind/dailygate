@@ -13,6 +13,7 @@ import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
+import { randomUUID } from "node:crypto";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dir, "..");
@@ -85,5 +86,41 @@ const res = spawnSync(
   [...GUILD.slice(1), "--non-interactive", "agent", "test", "--workspace", WS, "--mode", "json", "--events", "none"],
   { cwd: resolve(ROOT, "tiers", tier), input, encoding: "utf8" },
 );
-process.stdout.write(res.stdout || "");
+const out = res.stdout || "";
+process.stdout.write(out);
 if (res.stderr) process.stderr.write(res.stderr);
+
+// ── WRITE-BACK: record the outcome so the feed + trust update live ──────────────
+// ACTED  → autonomous decision (manager_response="n/a")  → shows in /feeds/autonomy
+// ESCALATE → pending decision (manager_response="pending")→ shows in /feeds/escalations
+await recordDecision(out);
+
+async function recordDecision(agentOutput) {
+  const m = agentOutput.match(/(ACTED|ESCALATE)\b[^\n]*/);
+  if (!m) { console.log("\n✎ no ACTED/ESCALATE line parsed — skipping write-back"); return; }
+  const wasAutonomous = m[1] === "ACTED";
+  const decision = {
+    id: `router-${itemId}-${randomUUID().slice(0, 8)}`,
+    item_id: itemId,
+    category: item.category,
+    action: m[0].trim().slice(0, 240),
+    stakes: (t.ceiling || t.risk_profile === "high") ? "high" : "low",
+    reversible: !t.ceiling,
+    was_autonomous: wasAutonomous,
+    manager_response: wasAutonomous ? "n/a" : "pending",
+  };
+  try {
+    const r = await fetch(`${API_BASE}/decision`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(decision),
+    });
+    if (!r.ok) { console.log(`\n✎ write-back failed (${r.status})`); return; }
+    const { trust } = await r.json();
+    console.log(`\n✎ recorded ${wasAutonomous ? "AUTONOMOUS action" : "ESCALATION (pending)"} → POST /decision`);
+    console.log(`  trust[${item.category}] → level ${trust.autonomy_level}, score ${trust.trust_score}` +
+      (wasAutonomous ? `, approvals ${trust.approvals_count}` : `, awaiting manager`));
+  } catch {
+    console.log(`\n✎ write-back skipped — ${API_BASE} unreachable`);
+  }
+}

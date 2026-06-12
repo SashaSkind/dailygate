@@ -36,6 +36,17 @@ node tiers/router.mjs email-3             # candidate (ceiling) → OBSERVER →
 Each tier can only do what Guild granted it. A category climbs the ladder as the
 manager keeps approving — and the ceiling is a rung it can never reach.
 
+## Write-back loop (closes the earned-autonomy cycle)
+After a tier agent acts or escalates, the router **POSTs the outcome to `/decision`**:
+- `ACTED`    → `manager_response="n/a"`     → appears in `/feeds/autonomy`, raises the Bayesian score
+- `ESCALATE` → `manager_response="pending"` → appears in `/feeds/escalations` (the UI queue)
+
+The manager approving/overriding in the UI upserts the same decision id → trust recomputes
+→ the category can cross a band and the **next** run routes to a higher tier. That's the loop.
+
+> Demo reset: running the router mutates trust. Before recording, reseed:
+> `rm data/api/dailygate.db*` then restart the API (it reseeds on startup).
+
 ## How it maps to production
 - `--level` is demo-only. In production the router reads `autonomy_level` from
   **ClickHouse** — Person B's **Bayesian** pipeline computes it from approval history
