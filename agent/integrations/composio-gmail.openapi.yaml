@@ -1,0 +1,69 @@
+openapi: 3.0.3
+info:
+  title: Composio Gmail Bridge
+  version: 1.0.0
+  description: >
+    Bridges Composio's direct tool-execution API into Guild as an agent tool.
+    One operation: send an email via the Composio GMAIL_SEND_EMAIL action.
+    Auth is Composio's x-api-key (stored as the Guild integration credential).
+servers:
+  - url: https://backend.composio.dev/api/v3
+paths:
+  /tools/execute/GMAIL_SEND_EMAIL:
+    post:
+      operationId: composio_gmail_send
+      summary: Send an email via Gmail through Composio (GMAIL_SEND_EMAIL).
+      description: >
+        Executes Composio's GMAIL_SEND_EMAIL action for a user_id whose Gmail
+        account is connected in Composio. Use for the thank-you note, candidate
+        comms, and other manager emails.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GmailSendRequest"
+      responses:
+        "200":
+          description: Execution result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExecuteResponse"
+components:
+  schemas:
+    GmailSendRequest:
+      type: object
+      required: [user_id, arguments]
+      properties:
+        user_id:
+          type: string
+          description: Composio user id whose Gmail account is connected.
+        arguments:
+          $ref: "#/components/schemas/GmailSendArguments"
+    GmailSendArguments:
+      type: object
+      required: [recipient_email, subject, body]
+      properties:
+        recipient_email:
+          type: string
+          description: Recipient email address.
+        subject:
+          type: string
+          description: Email subject line.
+        body:
+          type: string
+          description: Plain-text email body.
+    ExecuteResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          description: Action result payload from Composio.
+        successful:
+          type: boolean
+          description: Whether the action executed successfully.
+        error:
+          type: string
+          nullable: true
+          description: Error message if the action failed.
