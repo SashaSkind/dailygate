@@ -1,33 +1,423 @@
 {
-  "_note": "STARTER fixture for Person A's skeleton. Person B replaces/expands this at milestone B-α (exported from the real ClickHouse seed). Shape is frozen; the rows are demo-shaped per data/PLAN.md §5.",
+  "_note": "Exported from real seed \u2014 Person B milestone B-alpha v2 (Bayesian trust engine). Shape matches /contract/types.ts exactly.",
   "work_items": [
-    { "id": "gh-412", "source": "github", "title": "Fix login race condition", "owner_suggested": "sasha", "age_days": 0, "status": "open", "is_duplicate_of": "gh-389", "type": "task" },
-    { "id": "gh-389", "source": "github", "title": "Login intermittently fails under load", "owner_suggested": "sasha", "age_days": 14, "status": "open", "is_duplicate_of": null, "type": "task" },
-    { "id": "gh-401", "source": "github", "title": "Add rate limiting to public API", "owner_suggested": "sasha", "age_days": 3, "status": "in_progress", "is_duplicate_of": null, "type": "task" },
-    { "id": "gh-377", "source": "github", "title": "Refactor auth middleware", "owner_suggested": "sasha", "age_days": 7, "status": "open", "is_duplicate_of": null, "type": "review" },
-    { "id": "gh-420", "source": "github", "title": "Upgrade to Node 24", "owner_suggested": null, "age_days": 1, "status": "open", "is_duplicate_of": null, "type": "task" },
-    { "id": "gh-415", "source": "github", "title": "Flaky test in CI pipeline", "owner_suggested": "priya", "age_days": 5, "status": "open", "is_duplicate_of": null, "type": "review" },
-    { "id": "gh-405", "source": "github", "title": "Investigate memory leak in worker", "owner_suggested": "priya", "age_days": 6, "status": "in_progress", "is_duplicate_of": null, "type": "task" },
-    { "id": "gh-410", "source": "github", "title": "Add tests for the parser", "owner_suggested": "alex", "age_days": 3, "status": "open", "is_duplicate_of": null, "type": "review" },
-    { "id": "gh-430", "source": "github", "title": "Update README install steps", "owner_suggested": "marco", "age_days": 2, "status": "open", "is_duplicate_of": null, "type": "task" },
-    { "id": "slack-88", "source": "slack", "title": "Can someone own the dashboard bug?", "owner_suggested": null, "age_days": 2, "status": "open", "is_duplicate_of": "gh-405", "type": "task" },
-    { "id": "email-7", "source": "email", "title": "Thank-you note to design partner", "owner_suggested": "sasha", "age_days": 9, "status": "stale", "is_duplicate_of": null, "type": "email" },
-    { "id": "email-9", "source": "email", "title": "Follow up with vendor on contract", "owner_suggested": "marco", "age_days": 12, "status": "stale", "is_duplicate_of": null, "type": "email" },
-    { "id": "email-3", "source": "email", "title": "Candidate decision — Jordan (eng hire)", "owner_suggested": null, "age_days": 4, "status": "open", "is_duplicate_of": null, "type": "email" }
+    {
+      "id": "gh-389",
+      "source": "github",
+      "title": "Login intermittently fails under load",
+      "owner_suggested": "sasha",
+      "age_days": 14,
+      "status": "open",
+      "is_duplicate_of": null,
+      "type": "task"
+    },
+    {
+      "id": "gh-401",
+      "source": "github",
+      "title": "Add rate limiting to public API",
+      "owner_suggested": "sasha",
+      "age_days": 3,
+      "status": "in_progress",
+      "is_duplicate_of": null,
+      "type": "task"
+    },
+    {
+      "id": "gh-377",
+      "source": "github",
+      "title": "Refactor auth middleware",
+      "owner_suggested": "sasha",
+      "age_days": 7,
+      "status": "open",
+      "is_duplicate_of": null,
+      "type": "review"
+    },
+    {
+      "id": "gh-395",
+      "source": "github",
+      "title": "Fix session expiry edge case",
+      "owner_suggested": "sasha",
+      "age_days": 5,
+      "status": "open",
+      "is_duplicate_of": null,
+      "type": "task"
+    },
+    {
+      "id": "gh-398",
+      "source": "github",
+      "title": "Migrate legacy token service",
+      "owner_suggested": "sasha",
+      "age_days": 2,
+      "status": "open",
+      "is_duplicate_of": null,
+      "type": "task"
+    },
+    {
+      "id": "gh-403",
+      "source": "github",
+      "title": "Patch CORS header for mobile clients",
+      "owner_suggested": "sasha",
+      "age_days": 1,
+      "status": "open",
+      "is_duplicate_of": null,
+      "type": "task"
+    },
+    {
+      "id": "gh-412",
+      "source": "github",
+      "title": "Fix login race condition",
+      "owner_suggested": "sasha",
+      "age_days": 0,
+      "status": "open",
+      "is_duplicate_of": "gh-389",
+      "type": "task"
+    },
+    {
+      "id": "gh-422",
+      "source": "github",
+      "title": "Add caching layer to user profile endpoint",
+      "owner_suggested": "sasha",
+      "age_days": 1,
+      "status": "open",
+      "is_duplicate_of": null,
+      "type": "task"
+    },
+    {
+      "id": "gh-410",
+      "source": "github",
+      "title": "Add tests for the parser",
+      "owner_suggested": "alex",
+      "age_days": 3,
+      "status": "open",
+      "is_duplicate_of": null,
+      "type": "review"
+    },
+    {
+      "id": "gh-418",
+      "source": "github",
+      "title": "Upgrade to Node 24",
+      "owner_suggested": "alex",
+      "age_days": 1,
+      "status": "open",
+      "is_duplicate_of": null,
+      "type": "task"
+    },
+    {
+      "id": "gh-415",
+      "source": "github",
+      "title": "Flaky test in CI pipeline",
+      "owner_suggested": "priya",
+      "age_days": 5,
+      "status": "open",
+      "is_duplicate_of": null,
+      "type": "review"
+    },
+    {
+      "id": "gh-405",
+      "source": "github",
+      "title": "Investigate memory leak in worker",
+      "owner_suggested": "priya",
+      "age_days": 6,
+      "status": "in_progress",
+      "is_duplicate_of": null,
+      "type": "task"
+    },
+    {
+      "id": "gh-425",
+      "source": "github",
+      "title": "Document retry logic in job queue",
+      "owner_suggested": "priya",
+      "age_days": 3,
+      "status": "open",
+      "is_duplicate_of": null,
+      "type": "task"
+    },
+    {
+      "id": "gh-427",
+      "source": "github",
+      "title": "Fix pagination on /reports endpoint",
+      "owner_suggested": "priya",
+      "age_days": 4,
+      "status": "open",
+      "is_duplicate_of": null,
+      "type": "task"
+    },
+    {
+      "id": "gh-430",
+      "source": "github",
+      "title": "Update README install steps",
+      "owner_suggested": "marco",
+      "age_days": 2,
+      "status": "open",
+      "is_duplicate_of": null,
+      "type": "task"
+    },
+    {
+      "id": "gh-433",
+      "source": "github",
+      "title": "Add linting to CI",
+      "owner_suggested": "marco",
+      "age_days": 4,
+      "status": "open",
+      "is_duplicate_of": null,
+      "type": "task"
+    },
+    {
+      "id": "gh-436",
+      "source": "github",
+      "title": "Bump dependency versions",
+      "owner_suggested": "marco",
+      "age_days": 1,
+      "status": "open",
+      "is_duplicate_of": null,
+      "type": "task"
+    },
+    {
+      "id": "gh-440",
+      "source": "github",
+      "title": "Auto-label stale issues",
+      "owner_suggested": "triage-bot",
+      "age_days": 0,
+      "status": "open",
+      "is_duplicate_of": null,
+      "type": "task"
+    },
+    {
+      "id": "gh-420",
+      "source": "github",
+      "title": "Upgrade to Node 24 (secondary tracker)",
+      "owner_suggested": null,
+      "age_days": 1,
+      "status": "open",
+      "is_duplicate_of": null,
+      "type": "task"
+    },
+    {
+      "id": "slack-88",
+      "source": "slack",
+      "title": "Can someone own the dashboard bug?",
+      "owner_suggested": null,
+      "age_days": 2,
+      "status": "open",
+      "is_duplicate_of": "gh-405",
+      "type": "task"
+    },
+    {
+      "id": "slack-91",
+      "source": "slack",
+      "title": "Who can review the auth PR?",
+      "owner_suggested": null,
+      "age_days": 3,
+      "status": "open",
+      "is_duplicate_of": "gh-377",
+      "type": "task"
+    },
+    {
+      "id": "email-7",
+      "source": "email",
+      "title": "Thank-you note to design partner",
+      "owner_suggested": "sasha",
+      "age_days": 9,
+      "status": "stale",
+      "is_duplicate_of": null,
+      "type": "email"
+    },
+    {
+      "id": "email-9",
+      "source": "email",
+      "title": "Follow up with vendor on contract",
+      "owner_suggested": "marco",
+      "age_days": 12,
+      "status": "stale",
+      "is_duplicate_of": null,
+      "type": "email"
+    },
+    {
+      "id": "email-11",
+      "source": "email",
+      "title": "Send onboarding checklist to new hire",
+      "owner_suggested": "priya",
+      "age_days": 8,
+      "status": "stale",
+      "is_duplicate_of": null,
+      "type": "email"
+    },
+    {
+      "id": "email-3",
+      "source": "email",
+      "title": "Candidate decision \u2014 Jordan (eng hire)",
+      "owner_suggested": null,
+      "age_days": 4,
+      "status": "open",
+      "is_duplicate_of": null,
+      "type": "email"
+    },
+    {
+      "id": "email-5",
+      "source": "email",
+      "title": "Candidate decision \u2014 Riley (design hire)",
+      "owner_suggested": null,
+      "age_days": 2,
+      "status": "open",
+      "is_duplicate_of": null,
+      "type": "email"
+    },
+    {
+      "id": "gh-350",
+      "source": "github",
+      "title": "Fix broken link in docs",
+      "owner_suggested": "alex",
+      "age_days": 20,
+      "status": "done",
+      "is_duplicate_of": null,
+      "type": "task"
+    },
+    {
+      "id": "gh-355",
+      "source": "github",
+      "title": "Add dark mode toggle",
+      "owner_suggested": "priya",
+      "age_days": 18,
+      "status": "done",
+      "is_duplicate_of": null,
+      "type": "task"
+    },
+    {
+      "id": "gh-360",
+      "source": "github",
+      "title": "Cache API responses in Redis",
+      "owner_suggested": "marco",
+      "age_days": 15,
+      "status": "done",
+      "is_duplicate_of": null,
+      "type": "task"
+    },
+    {
+      "id": "gh-365",
+      "source": "github",
+      "title": "Write migration script for v2 schema",
+      "owner_suggested": "sasha",
+      "age_days": 12,
+      "status": "done",
+      "is_duplicate_of": null,
+      "type": "task"
+    }
   ],
   "workload": [
-    { "assignee": "sasha", "kind": "person", "open_tasks": 6, "est_load_score": 82 },
-    { "assignee": "alex", "kind": "person", "open_tasks": 2, "est_load_score": 30 },
-    { "assignee": "priya", "kind": "person", "open_tasks": 4, "est_load_score": 55 },
-    { "assignee": "marco", "kind": "person", "open_tasks": 3, "est_load_score": 45 },
-    { "assignee": "triage-bot", "kind": "agent", "open_tasks": 1, "est_load_score": 15 }
+    {
+      "assignee": "sasha",
+      "kind": "person",
+      "open_tasks": 6,
+      "est_load_score": 82
+    },
+    {
+      "assignee": "alex",
+      "kind": "person",
+      "open_tasks": 2,
+      "est_load_score": 30
+    },
+    {
+      "assignee": "priya",
+      "kind": "person",
+      "open_tasks": 4,
+      "est_load_score": 55
+    },
+    {
+      "assignee": "marco",
+      "kind": "person",
+      "open_tasks": 3,
+      "est_load_score": 45
+    },
+    {
+      "assignee": "triage-bot",
+      "kind": "agent",
+      "open_tasks": 1,
+      "est_load_score": 15
+    }
   ],
   "trust": [
-    { "category": "issue-triage", "autonomy_level": 2, "trust_score": 0.91, "confidence": 0.88, "approvals_count": 5, "overrides_count": 0, "ceiling": false },
-    { "category": "capacity-assignment", "autonomy_level": 2, "trust_score": 0.84, "confidence": 0.80, "approvals_count": 4, "overrides_count": 0, "ceiling": false },
-    { "category": "thank-you-note", "autonomy_level": 2, "trust_score": 0.79, "confidence": 0.74, "approvals_count": 3, "overrides_count": 0, "ceiling": false },
-    { "category": "nudge", "autonomy_level": 1, "trust_score": 0.62, "confidence": 0.70, "approvals_count": 3, "overrides_count": 1, "ceiling": false },
-    { "category": "code-review", "autonomy_level": 1, "trust_score": 0.48, "confidence": 0.55, "approvals_count": 2, "overrides_count": 0, "ceiling": false },
-    { "category": "candidate-decision", "autonomy_level": 0, "trust_score": 0.10, "confidence": 0.30, "approvals_count": 0, "overrides_count": 0, "ceiling": true }
+    {
+      "category": "issue-triage",
+      "autonomy_level": 2,
+      "trust_level": "auto",
+      "trust_score": 0.76,
+      "trust_confidence": 0.479,
+      "auto_threshold": 0.7,
+      "decay_half_life": 30,
+      "approvals_count": 5,
+      "overrides_count": 0,
+      "ceiling": false,
+      "risk_profile": "low",
+      "last_event": "score=0.76, confidence=0.48, threshold=0.70, level=auto"
+    },
+    {
+      "category": "capacity-assignment",
+      "autonomy_level": 2,
+      "trust_level": "auto",
+      "trust_score": 0.737,
+      "trust_confidence": 0.43,
+      "auto_threshold": 0.7,
+      "decay_half_life": 30,
+      "approvals_count": 4,
+      "overrides_count": 0,
+      "ceiling": false,
+      "risk_profile": "low",
+      "last_event": "score=0.74, confidence=0.43, threshold=0.70, level=auto"
+    },
+    {
+      "category": "code-review",
+      "autonomy_level": 1,
+      "trust_level": "ask",
+      "trust_score": 0.721,
+      "trust_confidence": 0.284,
+      "auto_threshold": 0.8,
+      "decay_half_life": 30,
+      "approvals_count": 2,
+      "overrides_count": 0,
+      "ceiling": false,
+      "risk_profile": "medium",
+      "last_event": "score=0.72, confidence=0.28, threshold=0.80, level=ask"
+    },
+    {
+      "category": "thank-you-note",
+      "autonomy_level": 2,
+      "trust_level": "auto",
+      "trust_score": 0.701,
+      "trust_confidence": 0.348,
+      "auto_threshold": 0.7,
+      "decay_half_life": 30,
+      "approvals_count": 3,
+      "overrides_count": 0,
+      "ceiling": false,
+      "risk_profile": "low",
+      "last_event": "score=0.70, confidence=0.35, threshold=0.70, level=auto"
+    },
+    {
+      "category": "nudge",
+      "autonomy_level": 1,
+      "trust_level": "ask",
+      "trust_score": 0.585,
+      "trust_confidence": 0.405,
+      "auto_threshold": 0.7,
+      "decay_half_life": 30,
+      "approvals_count": 3,
+      "overrides_count": 1,
+      "ceiling": false,
+      "risk_profile": "low",
+      "last_event": "score=0.58, confidence=0.41, threshold=0.70, level=ask"
+    },
+    {
+      "category": "candidate-decision",
+      "autonomy_level": 0,
+      "trust_level": "ask",
+      "trust_score": 0.33,
+      "trust_confidence": 0.0,
+      "auto_threshold": 0.92,
+      "decay_half_life": 30,
+      "approvals_count": 0,
+      "overrides_count": 0,
+      "ceiling": true,
+      "risk_profile": "high",
+      "last_event": "Ceiling \u2014 always escalates"
+    }
   ]
 }

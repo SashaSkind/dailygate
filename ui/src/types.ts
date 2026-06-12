@@ -12,10 +12,12 @@ export interface Workload {
   open_tasks: number; est_load_score: number;
 }
 export type AutonomyLevel = 0 | 1 | 2;
+export type RiskProfile = "low" | "medium" | "high";
 export interface Trust {
-  category: string; autonomy_level: AutonomyLevel;
-  trust_score: number; confidence: number; ceiling: boolean;
+  category: string; autonomy_level: AutonomyLevel; ceiling: boolean;
+  trust_score: number; trust_confidence: number;
   approvals_count: number; overrides_count: number;
+  auto_threshold?: number; risk_profile?: RiskProfile; last_event?: string;
 }
 export interface Decision {
   id: string; item_id: string | null; category: string; action: string;

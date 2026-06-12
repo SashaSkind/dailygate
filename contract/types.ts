@@ -49,19 +49,31 @@ export interface Decision extends DecisionInput {
   timestamp: string;                // ISO 8601, set by data lane on write
 }
 
-// Graded autonomy. Person B's (Bayesian) pipeline outputs autonomy_level + score;
-// the agent-lane router maps autonomy_level → which permission-tier agent runs.
-// Tiers (K=2): 0 observer (read-only) · 1 reversible (comment/label/nudge) · 2 routine (assign/close/send).
+// MERGED CONTRACT (agent lane × data lane). The agent-lane router reads
+// `autonomy_level`; Person B's Bayesian engine produces `trust_score` and the
+// extras. autonomy_level is DERIVED from trust_score (see MISMATCHES.md item 1 —
+// the derivation should live in trust.py).
+// Tiers: 0 observer (read-only) · 1 reversible (comment/label/nudge) · 2 routine (assign/close/send).
 export type AutonomyLevel = 0 | 1 | 2;
+export type TrustLevel = "ask" | "auto";   // legacy/derived: autonomy_level >= 2 ? "auto" : "ask"
+export type RiskProfile = "low" | "medium" | "high";
 
 export interface Trust {
   category: string;                 // matches Decision.category
+  // ── routing signal (agent lane reads this) ──
   autonomy_level: AutonomyLevel;    // the tier this category has EARNED (router maps level → agent)
-  trust_score: number;              // 0..1 — Bayesian posterior mean (powers the trust dashboard)
-  confidence: number;               // 0..1 — Bayesian posterior confidence (optional UI signal)
-  ceiling: boolean;                 // true = router CAPS this category at level 0, forever
+  ceiling: boolean;                 // true = capped at level 0, forever
+  // ── Bayesian engine (data lane) ──
+  trust_score: number;              // 0..1 Bayesian posterior (Beta MAP, time-decayed)
+  trust_confidence: number;         // 0..1 certainty (saturates with sample size)
   approvals_count: number;
   overrides_count: number;
+  // ── optional engine extras (power the trust dashboard) ──
+  auto_threshold?: number;          // score needed to promote (risk-adjusted)
+  decay_half_life?: number;         // days
+  risk_profile?: RiskProfile;       // inferred from category; drives auto_threshold
+  last_event?: string;              // plain-English last trust change
+  trust_level?: TrustLevel;         // legacy binary convenience
 }
 
 // GET /context response
