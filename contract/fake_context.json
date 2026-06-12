@@ -23,11 +23,11 @@
     { "assignee": "triage-bot", "kind": "agent", "open_tasks": 1, "est_load_score": 15 }
   ],
   "trust": [
-    { "category": "issue-triage", "trust_level": "auto", "approvals_count": 5, "overrides_count": 0, "ceiling": false },
-    { "category": "capacity-assignment", "trust_level": "auto", "approvals_count": 4, "overrides_count": 0, "ceiling": false },
-    { "category": "thank-you-note", "trust_level": "auto", "approvals_count": 3, "overrides_count": 0, "ceiling": false },
-    { "category": "nudge", "trust_level": "auto", "approvals_count": 3, "overrides_count": 1, "ceiling": false },
-    { "category": "code-review", "trust_level": "ask", "approvals_count": 2, "overrides_count": 0, "ceiling": false },
-    { "category": "candidate-decision", "trust_level": "ask", "approvals_count": 0, "overrides_count": 0, "ceiling": true }
+    { "category": "issue-triage", "autonomy_level": 2, "trust_score": 0.91, "confidence": 0.88, "approvals_count": 5, "overrides_count": 0, "ceiling": false },
+    { "category": "capacity-assignment", "autonomy_level": 2, "trust_score": 0.84, "confidence": 0.80, "approvals_count": 4, "overrides_count": 0, "ceiling": false },
+    { "category": "thank-you-note", "autonomy_level": 2, "trust_score": 0.79, "confidence": 0.74, "approvals_count": 3, "overrides_count": 0, "ceiling": false },
+    { "category": "nudge", "autonomy_level": 1, "trust_score": 0.62, "confidence": 0.70, "approvals_count": 3, "overrides_count": 1, "ceiling": false },
+    { "category": "code-review", "autonomy_level": 1, "trust_score": 0.48, "confidence": 0.55, "approvals_count": 2, "overrides_count": 0, "ceiling": false },
+    { "category": "candidate-decision", "autonomy_level": 0, "trust_score": 0.10, "confidence": 0.30, "approvals_count": 0, "overrides_count": 0, "ceiling": true }
   ]
 }

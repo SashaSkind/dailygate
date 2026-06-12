@@ -49,14 +49,19 @@ export interface Decision extends DecisionInput {
   timestamp: string;                // ISO 8601, set by data lane on write
 }
 
-export type TrustLevel = "ask" | "auto";
+// Graded autonomy. Person B's (Bayesian) pipeline outputs autonomy_level + score;
+// the agent-lane router maps autonomy_level → which permission-tier agent runs.
+// Tiers (K=2): 0 observer (read-only) · 1 reversible (comment/label/nudge) · 2 routine (assign/close/send).
+export type AutonomyLevel = 0 | 1 | 2;
 
 export interface Trust {
   category: string;                 // matches Decision.category
-  trust_level: TrustLevel;          // what the agent's act-vs-escalate branch reads
+  autonomy_level: AutonomyLevel;    // the tier this category has EARNED (router maps level → agent)
+  trust_score: number;              // 0..1 — Bayesian posterior mean (powers the trust dashboard)
+  confidence: number;               // 0..1 — Bayesian posterior confidence (optional UI signal)
+  ceiling: boolean;                 // true = router CAPS this category at level 0, forever
   approvals_count: number;
   overrides_count: number;
-  ceiling: boolean;                 // true = ALWAYS escalates; trust can never promote it
 }
 
 // GET /context response

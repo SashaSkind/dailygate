@@ -11,10 +11,11 @@ export interface Workload {
   assignee: string; kind: "person" | "agent";
   open_tasks: number; est_load_score: number;
 }
-export type TrustLevel = "ask" | "auto";
+export type AutonomyLevel = 0 | 1 | 2;
 export interface Trust {
-  category: string; trust_level: TrustLevel;
-  approvals_count: number; overrides_count: number; ceiling: boolean;
+  category: string; autonomy_level: AutonomyLevel;
+  trust_score: number; confidence: number; ceiling: boolean;
+  approvals_count: number; overrides_count: number;
 }
 export interface Decision {
   id: string; item_id: string | null; category: string; action: string;

@@ -50,13 +50,15 @@
     },
     "Trust": {
       "type": "object",
-      "required": ["category", "trust_level", "approvals_count", "overrides_count", "ceiling"],
+      "required": ["category", "autonomy_level", "trust_score", "confidence", "ceiling", "approvals_count", "overrides_count"],
       "properties": {
         "category": { "type": "string" },
-        "trust_level": { "enum": ["ask", "auto"] },
+        "autonomy_level": { "type": "integer", "minimum": 0, "maximum": 2 },
+        "trust_score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "ceiling": { "type": "boolean" },
         "approvals_count": { "type": "number" },
-        "overrides_count": { "type": "number" },
-        "ceiling": { "type": "boolean" }
+        "overrides_count": { "type": "number" }
       }
     },
     "ContextSnapshot": {
