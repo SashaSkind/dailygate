@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 import type { Decision } from "../types";
 import { getEscalationQueue, resolveEscalation } from "../api";
 
-// The few things the agent is ASKING about — high-stakes / ceiling decisions.
 export function EscalationQueue() {
   const [items, setItems] = useState<Decision[]>([]);
   const load = () => getEscalationQueue().then(setItems).catch(() => {});
+
   useEffect(() => {
     load();
     const id = setInterval(load, 4000);
@@ -18,27 +18,40 @@ export function EscalationQueue() {
   };
 
   return (
-    <div className="card card-escalate">
+    <div className={`card${items.length > 0 ? " card-escalate" : ""}`}>
       <div className="card-head">
-        <h2>Needs your decision</h2>
-        <span className="pill pill-ask">{items.length} escalated</span>
+        <span className="card-title">Needs your decision</span>
+        <span className={`pill ${items.length > 0 ? "pill-ask" : "pill-num"}`}>
+          {items.length} escalated
+        </span>
       </div>
-      <ul className="feed">
-        {items.map((d) => (
-          <li key={d.id} className="escalate-row">
-            <div>
-              <span className="cat cat-high">{d.category}</span>
-              <span className="action">{d.action}</span>
-              {!d.reversible && <span className="tag tag-irrev">irreversible</span>}
-            </div>
-            <div className="actions">
-              <button className="btn btn-approve" onClick={() => resolve(d, "approved")}>Approve</button>
-              <button className="btn btn-reject" onClick={() => resolve(d, "overridden")}>Override</button>
-            </div>
-          </li>
-        ))}
-        {items.length === 0 && <li className="empty">Nothing needs you right now. 🎉</li>}
-      </ul>
+
+      {items.length === 0 ? (
+        <p className="empty">Nothing needs you right now — agent is handling it.</p>
+      ) : (
+        <ul className="escalate-list">
+          {items.map((d) => (
+            <li key={d.id} className="escalate-item">
+              <div className="escalate-meta">
+                <span className={`cat-badge${d.stakes === "high" ? " high-stakes" : ""}`}>
+                  {d.category}
+                </span>
+                {!d.reversible && <span className="tag tag-irrev">irreversible</span>}
+                {d.stakes === "high" && <span className="tag tag-irrev">high stakes</span>}
+              </div>
+              <p className="escalate-action">{d.action}</p>
+              <div className="escalate-btns">
+                <button className="btn btn-approve" onClick={() => resolve(d, "approved")}>
+                  Approve
+                </button>
+                <button className="btn btn-override" onClick={() => resolve(d, "overridden")}>
+                  Override
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

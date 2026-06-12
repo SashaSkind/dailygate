@@ -1,43 +1,92 @@
 import { useEffect, useState } from "react";
 import type { ContextSnapshot } from "./types";
-import { getContext } from "./api";
-import { AutonomyFeed } from "./components/AutonomyFeed";
+import { getContext, getHealth } from "./api";
 import { EscalationQueue } from "./components/EscalationQueue";
+import { AutonomyFeed } from "./components/AutonomyFeed";
 import { TrustDashboard } from "./components/TrustDashboard";
+import { TrustEventStream } from "./components/TrustEventStream";
 import { WorkItemList } from "./components/WorkItemList";
+import "./styles.css";
 
-// Manager console. Three supervision panels + a GitHub-like work list.
-// Poll every few seconds so autonomous actions appear "live" in the demo.
 export default function App() {
-  const [ctx, setCtx] = useState<ContextSnapshot | null>(null);
-  const [err, setErr] = useState<string | null>(null);
+  const [ctx, setCtx]           = useState<ContextSnapshot | null>(null);
+  const [langfuse, setLangfuse] = useState<string | null>(null);
+  const [err, setErr]           = useState<string | null>(null);
 
   useEffect(() => {
-    const tick = () => getContext().then(setCtx).catch((e) => setErr(String(e)));
+    const tick = () =>
+      getContext().then(setCtx).catch((e) => setErr(String(e)));
     tick();
-    const id = setInterval(tick, 4000);
+    const id = setInterval(tick, 5000);
     return () => clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    getHealth()
+      .then((h) => setLangfuse(h.langfuse))
+      .catch(() => setLangfuse(null));
+  }, []);
+
+  const trust       = ctx?.trust ?? [];
+  const routineN    = trust.filter((t) => t.autonomy_level === 2 && !t.ceiling).length;
+  const reversibleN = trust.filter((t) => t.autonomy_level === 1).length;
+  const workOpen    = (ctx?.work_items ?? []).filter((i) => i.status !== "done").length;
 
   return (
     <div className="app">
       <header className="topbar">
-        <h1>DailyGate <span className="muted">— Manager Console</span></h1>
-        <p className="tagline">Autonomy is the default. The agent earns trust over time.</p>
+        <div className="topbar-left">
+          <div className="live-dot" />
+          <div>
+            <h1>DailyGate</h1>
+            <div className="topbar-tagline">Earned autonomy · Bayesian trust engine</div>
+          </div>
+        </div>
+
+        <div className="topbar-stats">
+          {routineN > 0 && (
+            <div className="stat-chip emerald">
+              <span className="stat-chip-val">{routineN}</span>
+              categories routine
+            </div>
+          )}
+          {reversibleN > 0 && (
+            <div className="stat-chip sky">
+              <span className="stat-chip-val">{reversibleN}</span>
+              reversible
+            </div>
+          )}
+          <div className="stat-chip indigo">
+            <span className="stat-chip-val">{workOpen}</span>
+            items open
+          </div>
+          {langfuse === "connected" && (
+            <div className="stat-chip emerald">◉ Langfuse live</div>
+          )}
+        </div>
       </header>
 
-      {err && <div className="banner error">API not reachable: {err} — is Person B's server up?</div>}
+      {err && (
+        <div className="error-banner">
+          API unreachable — is <code>data/api/start.sh</code> running on :8001?
+        </div>
+      )}
 
-      <main className="grid">
-        <section className="col-main">
+      <div className="main-grid">
+        <div className="col-left">
           <EscalationQueue />
           <AutonomyFeed />
-        </section>
-        <aside className="col-side">
-          <TrustDashboard trust={ctx?.trust ?? []} />
           <WorkItemList items={ctx?.work_items ?? []} workload={ctx?.workload ?? []} />
-        </aside>
-      </main>
+        </div>
+
+        <div className="col-center">
+          <TrustDashboard trust={trust} />
+        </div>
+
+        <div className="col-right">
+          <TrustEventStream />
+        </div>
+      </div>
     </div>
   );
 }

@@ -2,9 +2,16 @@ import { useEffect, useState } from "react";
 import type { Decision } from "../types";
 import { getAutonomyFeed } from "../api";
 
-// "It handled N things on its own today." — the live feed of autonomous actions.
+function timeAgo(ts: string): string {
+  const secs = Math.max(0, Math.floor((Date.now() - new Date(ts).getTime()) / 1000));
+  if (secs < 60)  return `${secs}s ago`;
+  if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
+  return `${Math.floor(secs / 3600)}h ago`;
+}
+
 export function AutonomyFeed() {
   const [items, setItems] = useState<Decision[]>([]);
+
   useEffect(() => {
     const tick = () => getAutonomyFeed().then(setItems).catch(() => {});
     tick();
@@ -15,19 +22,28 @@ export function AutonomyFeed() {
   return (
     <div className="card">
       <div className="card-head">
-        <h2>Autonomy feed</h2>
-        <span className="pill pill-auto">{items.length} acted on its own</span>
+        <span className="card-title">Acted autonomously</span>
+        <span className="pill pill-l2">{items.length} total</span>
       </div>
-      <ul className="feed">
-        {items.map((d) => (
-          <li key={d.id} className="feed-row">
-            <span className="cat">{d.category}</span>
-            <span className="action">{d.action}</span>
-            <time>{new Date(d.timestamp).toLocaleTimeString()}</time>
-          </li>
-        ))}
-        {items.length === 0 && <li className="empty">No autonomous actions yet.</li>}
-      </ul>
+
+      {items.length === 0 ? (
+        <p className="empty">No autonomous actions yet.</p>
+      ) : (
+        <ul className="feed-list scroll-list">
+          {items.map((d) => (
+            <li key={d.id} className="feed-item">
+              <div className="feed-dot" />
+              <div className="feed-body">
+                <div className="feed-action">{d.action}</div>
+                <div className="feed-meta">
+                  <span className="cat-badge">{d.category}</span>
+                  <span className="feed-time">{timeAgo(d.timestamp)}</span>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

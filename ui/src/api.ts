@@ -1,5 +1,5 @@
 // Client for Person B's data API. All calls go through the Vite /api proxy.
-import type { ContextSnapshot, Decision } from "./types";
+import type { ContextSnapshot, Decision, TrustEvent } from "./types";
 
 const BASE = "/api";
 
@@ -9,16 +9,20 @@ async function get<T>(path: string): Promise<T> {
   return r.json();
 }
 
-// GET /context — full snapshot (work items, workload, trust)
 export const getContext = () => get<ContextSnapshot>("/context");
 
-// Feeds for the dashboard. Person B's API wraps results: { decisions: [...] }.
 export const getAutonomyFeed = () =>
-  get<{ decisions: Decision[] }>("/feeds/autonomy").then((r) => r.decisions);      // was_autonomous = true
-export const getEscalationQueue = () =>
-  get<{ decisions: Decision[] }>("/feeds/escalations").then((r) => r.decisions);   // manager_response = "pending"
+  get<{ decisions: Decision[] }>("/feeds/autonomy").then((r) => r.decisions);
 
-// Manager resolves an escalation → re-call POST /decision (upsert by id).
+export const getEscalationQueue = () =>
+  get<{ decisions: Decision[] }>("/feeds/escalations").then((r) => r.decisions);
+
+export const getTrustEvents = (limit = 30) =>
+  get<{ events: TrustEvent[] }>(`/feeds/trust-events?limit=${limit}`).then((r) => r.events);
+
+export const getHealth = () =>
+  get<{ status: string; langfuse: string }>("/health");
+
 export async function resolveEscalation(
   decision: Decision,
   response: "approved" | "overridden" | "edited",
