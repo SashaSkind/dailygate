@@ -1,0 +1,28 @@
+# deps / build
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+
+# secrets & env  (NEVER commit creds — hackathon rule)
+.env
+.env.*
+!.env.example
+**/secrets*
+*.pem
+*.key
+
+# guild local state
+.guild/
+guild.local.json
+
+# data dumps / local db
+data/**/*.local.*
+*.clickhouse
+*.sqlite
+
+# misc
+.DS_Store
+*.log
+npm-debug.log*
+.vite/

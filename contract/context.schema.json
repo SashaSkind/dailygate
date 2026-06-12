@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dailygate/contract/context.schema.json",
+  "title": "DailyGate frozen contract",
+  "description": "The seam between the AGENT lane (A) and the DATA lane (B). See data/PLAN.md §4.",
+  "definitions": {
+    "WorkItem": {
+      "type": "object",
+      "required": ["id", "source", "title", "owner_suggested", "age_days", "status", "is_duplicate_of", "type"],
+      "properties": {
+        "id": { "type": "string" },
+        "source": { "enum": ["github", "slack", "email"] },
+        "title": { "type": "string" },
+        "owner_suggested": { "type": ["string", "null"] },
+        "age_days": { "type": "number" },
+        "status": { "enum": ["open", "in_progress", "stale", "done"] },
+        "is_duplicate_of": { "type": ["string", "null"] },
+        "type": { "enum": ["task", "email", "review"] }
+      }
+    },
+    "Workload": {
+      "type": "object",
+      "required": ["assignee", "kind", "open_tasks", "est_load_score"],
+      "properties": {
+        "assignee": { "type": "string" },
+        "kind": { "enum": ["person", "agent"] },
+        "open_tasks": { "type": "number" },
+        "est_load_score": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "DecisionInput": {
+      "type": "object",
+      "required": ["id", "item_id", "category", "action", "stakes", "reversible", "was_autonomous", "manager_response"],
+      "properties": {
+        "id": { "type": "string" },
+        "item_id": { "type": ["string", "null"] },
+        "category": { "type": "string" },
+        "action": { "type": "string" },
+        "stakes": { "enum": ["low", "high"] },
+        "reversible": { "type": "boolean" },
+        "was_autonomous": { "type": "boolean" },
+        "manager_response": { "enum": ["approved", "overridden", "edited", "pending", "n/a"] }
+      }
+    },
+    "Decision": {
+      "allOf": [
+        { "$ref": "#/definitions/DecisionInput" },
+        { "type": "object", "required": ["timestamp"], "properties": { "timestamp": { "type": "string", "format": "date-time" } } }
+      ]
+    },
+    "Trust": {
+      "type": "object",
+      "required": ["category", "trust_level", "approvals_count", "overrides_count", "ceiling"],
+      "properties": {
+        "category": { "type": "string" },
+        "trust_level": { "enum": ["ask", "auto"] },
+        "approvals_count": { "type": "number" },
+        "overrides_count": { "type": "number" },
+        "ceiling": { "type": "boolean" }
+      }
+    },
+    "ContextSnapshot": {
+      "type": "object",
+      "required": ["work_items", "workload", "trust"],
+      "properties": {
+        "work_items": { "type": "array", "items": { "$ref": "#/definitions/WorkItem" } },
+        "workload": { "type": "array", "items": { "$ref": "#/definitions/Workload" } },
+        "trust": { "type": "array", "items": { "$ref": "#/definitions/Trust" } }
+      }
+    }
+  },
+  "$ref": "#/definitions/ContextSnapshot"
+}
