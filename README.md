@@ -1,5 +1,10 @@
 # DailyGate — the agent that earns trust
 
+## 🎥 ▶ [**WATCH THE 3-MINUTE DEMO**](https://youtu.be/B5a7SoK_7Bs)
+> **Demo video:** https://youtu.be/B5a7SoK_7Bs
+
+---
+
 An **autonomous team-management agent** that runs across GitHub / Slack / email.
 Autonomy is the default; human input is the exception — **and the line between
 "act alone" and "ask first" moves as the agent earns the manager's trust.**
