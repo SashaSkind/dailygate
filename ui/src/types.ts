@@ -1,4 +1,3 @@
-// Mirror of /contract/types.ts — keep in sync. Source of truth is the contract.
 export type Source = "github" | "slack" | "email";
 export type WorkStatus = "open" | "in_progress" | "stale" | "done";
 export type WorkType = "task" | "email" | "review";
@@ -31,15 +30,55 @@ export interface ContextSnapshot {
 }
 export type TrustEventType = "promoted" | "demoted" | "score_updated" | "created" | "threshold_adjusted";
 export interface TrustEvent {
-  id: string;
-  category: string;
-  event_type: TrustEventType;
-  old_level: string | null;
-  new_level: string | null;
-  old_score: number | null;
-  new_score: number;
-  confidence: number;
-  reason: string;
-  decision_id: string | null;
-  timestamp: string;
+  id: string; category: string; event_type: TrustEventType;
+  old_level: string | null; new_level: string | null;
+  old_score: number | null; new_score: number; confidence: number;
+  reason: string; decision_id: string | null; timestamp: string;
+}
+
+export type StepType =
+  | "received" | "classify" | "trust_check" | "route"
+  | "analyze" | "act" | "record" | "saved"
+  | "ceiling" | "escalate";
+
+export interface DemoStep {
+  id: number;
+  type: StepType;
+  text: string;
+  sub: string;
+  delay_ms: number;
+  pass?: boolean;
+}
+
+export interface DemoResult {
+  item: { id: string; title: string; source: string; category: string; github?: GithubDetails | null; email_preview?: string };
+  routing: Trust & { tier: string };
+  trust_before: Trust;
+  trust_after: Trust;
+  outcome: "ACTED" | "ESCALATED";
+  time_saved_min: number;
+  score_delta: number;
+  steps: DemoStep[];
+}
+
+export interface GithubDetails {
+  number: number;
+  body: string;
+  author: string;
+  created: string;
+  labels_before: string[];
+  state_before: string;
+  state_after: string;
+  labels_after: string[];
+  assignee: string | null;
+  comment_posted: string;
+}
+
+export interface DashboardStats {
+  total_autonomous: number;
+  total_decisions: number;
+  time_saved_min: number;
+  escalation_count: number;
+  promotions: number;
+  demo_items: string[];
 }

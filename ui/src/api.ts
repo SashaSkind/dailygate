@@ -1,5 +1,4 @@
-// Client for Person B's data API. All calls go through the Vite /api proxy.
-import type { ContextSnapshot, Decision, TrustEvent } from "./types";
+import type { ContextSnapshot, Decision, TrustEvent, DemoResult, DashboardStats } from "./types";
 
 const BASE = "/api";
 
@@ -9,19 +8,20 @@ async function get<T>(path: string): Promise<T> {
   return r.json();
 }
 
-export const getContext = () => get<ContextSnapshot>("/context");
+export const getContext     = () => get<ContextSnapshot>("/context");
+export const getHealth      = () => get<{ status: string; langfuse: string }>("/health");
+export const getStats       = () => get<DashboardStats>("/feeds/stats");
+export const getTrustEvents = (limit = 25) => get<{ events: TrustEvent[] }>(`/feeds/trust-events?limit=${limit}`).then((r) => r.events);
+export const getAutonomyFeed= () => get<{ decisions: Decision[] }>("/feeds/autonomy").then((r) => r.decisions);
+export const getEscalationQueue = () => get<{ decisions: Decision[] }>("/feeds/escalations").then((r) => r.decisions);
 
-export const getAutonomyFeed = () =>
-  get<{ decisions: Decision[] }>("/feeds/autonomy").then((r) => r.decisions);
-
-export const getEscalationQueue = () =>
-  get<{ decisions: Decision[] }>("/feeds/escalations").then((r) => r.decisions);
-
-export const getTrustEvents = (limit = 30) =>
-  get<{ events: TrustEvent[] }>(`/feeds/trust-events?limit=${limit}`).then((r) => r.events);
-
-export const getHealth = () =>
-  get<{ status: string; langfuse: string }>("/health");
+export async function runDemo(itemId: string): Promise<DemoResult> {
+  const r = await fetch(`${BASE}/demo/run?item_id=${encodeURIComponent(itemId)}&record=true`, {
+    method: "POST",
+  });
+  if (!r.ok) throw new Error(`demo/run → ${r.status}`);
+  return r.json();
+}
 
 export async function resolveEscalation(
   decision: Decision,

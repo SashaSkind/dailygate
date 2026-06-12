@@ -5,12 +5,15 @@ Endpoints:
   GET  /context                    → { work_items, workload, trust }
   POST /decision                   → upsert + recompute Bayesian trust → { decision, trust }
   GET  /trust/{category}/explain   → full audit: score breakdown, path to auto, event log
+  POST /demo/run                   → scripted agent execution with step-by-step narrative
   GET  /feeds/autonomy             → recent autonomous decisions
   GET  /feeds/escalations          → pending escalations
+  GET  /feeds/stats                → dashboard stats: time saved, counts
   GET  /feeds/trust-dashboard      → full trust table with scores + confidence
   GET  /feeds/trust-events         → trust promotion/demotion event log
   GET  /health
 """
+import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -22,6 +25,7 @@ from database import init_db, get_conn
 from trust import recompute, recompute_all, explain as trust_explain, autonomy_level
 from seed import seed
 import langfuse_client as lf_client
+from demo import DEMO_ITEMS, build_steps, TIME_PER_CATEGORY
 
 app = FastAPI(title="DailyGate Data API", version="2.0.0")
 
@@ -291,6 +295,114 @@ def feed_langfuse():
     override → rebuild → earned autonomy — in Langfuse's UI.
     """
     return {"sessions": lf_client.langfuse_links()}
+
+
+@app.post("/demo/run")
+def demo_run(item_id: str = "gh-412", record: bool = True):
+    """
+    Run a scripted demo execution. Returns step-by-step narrative + trust delta.
+    If record=true, records the decision and recomputes real Bayesian trust.
+    """
+    item = DEMO_ITEMS.get(item_id, DEMO_ITEMS["gh-412"])
+
+    with get_conn() as conn:
+        trust_row = conn.execute("SELECT * FROM trust WHERE category=?", (item["category"],)).fetchone()
+
+    trust_before = _trust(trust_row) if trust_row else {
+        "trust_level": "ask", "trust_score": 0.33, "trust_confidence": 0.0,
+        "auto_threshold": 0.80, "risk_profile": "medium", "ceiling": False,
+        "autonomy_level": 0, "approvals_count": 0, "overrides_count": 0,
+    }
+
+    routing = dict(trust_before)
+    routing["tier"] = {0: "OBSERVER", 1: "REVERSIBLE", 2: "ROUTINE"}[trust_before["autonomy_level"]]
+
+    outcome = "ACTED" if (routing["autonomy_level"] >= 2 and not routing["ceiling"]) else "ESCALATED"
+    trust_after = trust_before
+    decision_id = None
+
+    if record:
+        was_autonomous = outcome == "ACTED"
+        manager_response = "n/a" if was_autonomous else "pending"
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        decision_id = f"demo-{item_id}-{str(uuid.uuid4())[:8]}"
+
+        with get_conn() as conn:
+            conn.execute(
+                """INSERT INTO decision
+                   (id, item_id, category, action, stakes, reversible,
+                    was_autonomous, manager_response, timestamp)
+                   VALUES (?,?,?,?,?,?,?,?,?)
+                   ON CONFLICT(id) DO NOTHING""",
+                (decision_id, item["id"], item["category"], item["action"],
+                 item["stakes"], int(item["reversible"]), int(was_autonomous),
+                 manager_response, now),
+            )
+            updated = recompute(conn, item["category"], decision_id=decision_id)
+        trust_after = _trust(updated)
+
+        lf_client.trace_decision(
+            decision_id=decision_id,
+            category=item["category"],
+            action=item["action"],
+            stakes=item["stakes"],
+            reversible=item["reversible"],
+            was_autonomous=was_autonomous,
+            manager_response=manager_response,
+            trust_before=trust_before,
+            trust_after=trust_after,
+            timestamp=now,
+        )
+
+    steps = build_steps(item, routing)
+    score_delta = trust_after["trust_score"] - trust_before["trust_score"]
+    for s in steps:
+        if s["type"] == "record":
+            s["text"] = (
+                f"Trust: {trust_before['trust_score']*100:.0f}% → "
+                f"{trust_after['trust_score']*100:.0f}% "
+                f"({'+'if score_delta>=0 else ''}{score_delta*100:.1f}%)"
+            )
+
+    return {
+        "item": item,
+        "routing": routing,
+        "trust_before": trust_before,
+        "trust_after": trust_after,
+        "outcome": outcome,
+        "time_saved_min": item["time_saved_min"],
+        "score_delta": round(score_delta, 4),
+        "steps": steps,
+    }
+
+
+@app.get("/feeds/stats")
+def feed_stats():
+    """Dashboard stats for the UI hero: time saved, counts, learning moments."""
+    with get_conn() as conn:
+        auto_rows = conn.execute(
+            "SELECT category, COUNT(*) as n FROM decision WHERE was_autonomous=1 GROUP BY category"
+        ).fetchall()
+        total_auto = sum(r["n"] for r in auto_rows)
+        time_saved_min = sum(
+            r["n"] * TIME_PER_CATEGORY.get(r["category"], 5) for r in auto_rows
+        )
+        escalation_count = conn.execute(
+            "SELECT COUNT(*) FROM decision WHERE manager_response='pending'"
+        ).fetchone()[0]
+        total_decisions = conn.execute("SELECT COUNT(*) FROM decision").fetchone()[0]
+        promotions = conn.execute(
+            "SELECT COUNT(*) FROM trust_events WHERE event_type='promoted'"
+        ).fetchone()[0]
+
+    return {
+        "total_autonomous": total_auto,
+        "total_decisions": total_decisions,
+        "time_saved_min": time_saved_min,
+        "escalation_count": escalation_count,
+        "promotions": promotions,
+        "demo_items": list(DEMO_ITEMS.keys()),
+    }
 
 
 @app.get("/health")

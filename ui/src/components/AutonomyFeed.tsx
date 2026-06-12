@@ -3,15 +3,14 @@ import type { Decision } from "../types";
 import { getAutonomyFeed } from "../api";
 
 function timeAgo(ts: string): string {
-  const secs = Math.max(0, Math.floor((Date.now() - new Date(ts).getTime()) / 1000));
-  if (secs < 60)  return `${secs}s ago`;
-  if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
-  return `${Math.floor(secs / 3600)}h ago`;
+  const s = Math.max(0, Math.floor((Date.now() - new Date(ts).getTime()) / 1000));
+  if (s < 60)   return `${s}s ago`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  return `${Math.floor(s / 3600)}h ago`;
 }
 
 export function AutonomyFeed() {
   const [items, setItems] = useState<Decision[]>([]);
-
   useEffect(() => {
     const tick = () => getAutonomyFeed().then(setItems).catch(() => {});
     tick();
@@ -22,8 +21,11 @@ export function AutonomyFeed() {
   return (
     <div className="card">
       <div className="card-head">
-        <span className="card-title">Acted autonomously</span>
-        <span className="pill pill-l2">{items.length} total</span>
+        <div>
+          <div className="card-title">Acted autonomously</div>
+          <div className="card-sub">No manager needed for these</div>
+        </div>
+        <span className="badge badge-green">{items.length} total</span>
       </div>
 
       {items.length === 0 ? (

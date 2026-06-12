@@ -18,35 +18,32 @@ export function EscalationQueue() {
   };
 
   return (
-    <div className={`card${items.length > 0 ? " card-escalate" : ""}`}>
+    <div className="card">
       <div className="card-head">
-        <span className="card-title">Needs your decision</span>
-        <span className={`pill ${items.length > 0 ? "pill-ask" : "pill-num"}`}>
-          {items.length} escalated
+        <div>
+          <div className="card-title">Needs your decision</div>
+          <div className="card-sub">High-stakes or ceiling items the agent always escalates</div>
+        </div>
+        <span className={`badge ${items.length > 0 ? "badge-amber" : "badge-neutral"}`}>
+          {items.length} waiting
         </span>
       </div>
 
       {items.length === 0 ? (
-        <p className="empty">Nothing needs you right now — agent is handling it.</p>
+        <p className="empty">Nothing needs you right now — agent has it covered.</p>
       ) : (
         <ul className="escalate-list">
           {items.map((d) => (
             <li key={d.id} className="escalate-item">
               <div className="escalate-meta">
-                <span className={`cat-badge${d.stakes === "high" ? " high-stakes" : ""}`}>
-                  {d.category}
-                </span>
+                <span className={`cat-badge${d.stakes === "high" ? " high" : ""}`}>{d.category}</span>
                 {!d.reversible && <span className="tag tag-irrev">irreversible</span>}
                 {d.stakes === "high" && <span className="tag tag-irrev">high stakes</span>}
               </div>
               <p className="escalate-action">{d.action}</p>
               <div className="escalate-btns">
-                <button className="btn btn-approve" onClick={() => resolve(d, "approved")}>
-                  Approve
-                </button>
-                <button className="btn btn-override" onClick={() => resolve(d, "overridden")}>
-                  Override
-                </button>
+                <button className="btn btn-green" onClick={() => resolve(d, "approved")}>Approve</button>
+                <button className="btn btn-red"   onClick={() => resolve(d, "overridden")}>Override</button>
               </div>
             </li>
           ))}
