@@ -3,9 +3,16 @@ Seed the database with demo data per data/PLAN.md §5.
 Run once: python seed.py
 """
 import sqlite3
+import sys
 from datetime import datetime, timedelta, timezone
 from database import get_conn, init_db
 from trust import recompute_all
+
+
+def _log(msg: str) -> None:
+    # stderr only — keep stdout clean so `python seed.py > fake_context.json`-style
+    # exports never get log text mixed into the JSON.
+    print(msg, file=sys.stderr)
 
 
 def already_seeded(conn: sqlite3.Connection) -> bool:
@@ -22,7 +29,7 @@ def seed():
     init_db()
     with get_conn() as conn:
         if already_seeded(conn):
-            print("Already seeded — skipping.")
+            _log("Already seeded — skipping.")
             return
 
         # ── WORKLOAD (5 assignees) ─────────────────────────────────────────────
@@ -157,14 +164,14 @@ def seed():
             "INSERT OR REPLACE INTO decision VALUES (?,?,?,?,?,?,?,?,?)", decisions
         )
 
-        print(f"Seeded: {len(items)} work items, {len(workload)} assignees, "
-              f"{len(trust_rows)} trust rows, {len(decisions)} decisions.")
+        _log(f"Seeded: {len(items)} work items, {len(workload)} assignees, "
+             f"{len(trust_rows)} trust rows, {len(decisions)} decisions.")
 
     # Recompute Bayesian scores from the real decision history (outside the
     # seeding transaction so reads are consistent)
     with get_conn() as conn:
         recompute_all(conn)
-        print("Trust scores recomputed from decision history.")
+        _log("Trust scores recomputed from decision history.")
 
 
 if __name__ == "__main__":

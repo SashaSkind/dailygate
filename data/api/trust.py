@@ -55,6 +55,9 @@ RISK_THRESHOLDS: Dict[str, float] = {
     "high":   0.92,
 }
 
+# ── Reversible band: score to earn level-1 (reversible writes) below the auto bar ─
+REVERSIBLE_BAND = 0.55
+
 # ── Category bootstrap: keyword → risk profile ───────────────────────────────
 # Ordered by specificity (first match wins)
 CATEGORY_RISK_PATTERNS = [
@@ -216,6 +219,28 @@ def _log_event(
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
+
+def autonomy_level(trust_level: str, trust_score: float,
+                   trust_confidence: float, ceiling: bool) -> int:
+    """
+    Map the Bayesian trust state onto the agent-lane permission ladder that the
+    router reads:
+      0 observer  (read-only)
+      1 reversible (comment / label / nudge)
+      2 routine    (assign / close / send email)
+
+    Level 2 == "auto" — already gated by threshold + confidence + override-demotion
+    inside recompute(). Level 1 is the reversible middle band: enough trust to make
+    low-stakes reversible writes, but below the auto bar. Ceiling caps at 0.
+    """
+    if ceiling:
+        return 0
+    if trust_level == "auto":
+        return 2
+    if trust_confidence >= MINIMUM_CONFIDENCE_TO_PROMOTE and trust_score >= REVERSIBLE_BAND:
+        return 1
+    return 0
+
 
 def get_or_create_trust(conn, category: str) -> Dict[str, Any]:
     row = conn.execute("SELECT * FROM trust WHERE category = ?", (category,)).fetchone()

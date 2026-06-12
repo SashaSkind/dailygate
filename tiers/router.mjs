@@ -34,7 +34,21 @@ const ITEMS = {
   "gh-377":  { title: "Refactor auth middleware", category: "code-review", needed_action: "label needs-review and request a reviewer" },
 };
 
-const trust = JSON.parse(readFileSync(resolve(ROOT, "contract/fake_context.json"), "utf8")).trust;
+// Trust comes from Person B's live API; fall back to the frozen fixture if it's down.
+const API_BASE = process.env.API_BASE || "http://localhost:8001";
+async function loadTrust() {
+  try {
+    const r = await fetch(`${API_BASE}/context`);
+    if (r.ok) {
+      const d = await r.json();
+      console.log(`  (trust ← ${API_BASE}/context)`);
+      return d.trust;
+    }
+  } catch { /* fall through */ }
+  console.log(`  (trust ← local fixture; ${API_BASE} unreachable)`);
+  return JSON.parse(readFileSync(resolve(ROOT, "contract/fake_context.json"), "utf8")).trust;
+}
+const trust = await loadTrust();
 
 const [, , itemId, ...rest] = process.argv;
 if (!itemId || !ITEMS[itemId]) {

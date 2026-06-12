@@ -12,9 +12,11 @@ async function get<T>(path: string): Promise<T> {
 // GET /context — full snapshot (work items, workload, trust)
 export const getContext = () => get<ContextSnapshot>("/context");
 
-// Feeds for the dashboard (Person B serves these — see data/PLAN.md §6 B7)
-export const getAutonomyFeed = () => get<Decision[]>("/feeds/autonomy");      // was_autonomous = true
-export const getEscalationQueue = () => get<Decision[]>("/feeds/escalations"); // manager_response = "pending"
+// Feeds for the dashboard. Person B's API wraps results: { decisions: [...] }.
+export const getAutonomyFeed = () =>
+  get<{ decisions: Decision[] }>("/feeds/autonomy").then((r) => r.decisions);      // was_autonomous = true
+export const getEscalationQueue = () =>
+  get<{ decisions: Decision[] }>("/feeds/escalations").then((r) => r.decisions);   // manager_response = "pending"
 
 // Manager resolves an escalation → re-call POST /decision (upsert by id).
 export async function resolveEscalation(

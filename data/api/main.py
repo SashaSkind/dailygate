@@ -19,7 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from database import init_db, get_conn
-from trust import recompute, recompute_all, explain as trust_explain
+from trust import recompute, recompute_all, explain as trust_explain, autonomy_level
 from seed import seed
 
 app = FastAPI(title="DailyGate Data API", version="2.0.0")
@@ -63,17 +63,21 @@ def _workload(r) -> dict:
 
 
 def _trust(r) -> dict:
-    """Full trust row — additive fields are safe: Person A ignores unknowns."""
+    """Full trust row. `autonomy_level` is the routing signal Person A's router reads."""
+    score      = round(float(r["trust_score"] or 0.33), 3)
+    confidence = round(float(r["trust_confidence"] or 0.0), 3)
+    ceiling    = bool(r["ceiling"])
     return {
         "category":         r["category"],
+        "autonomy_level":   autonomy_level(r["trust_level"], score, confidence, ceiling),
+        "ceiling":          ceiling,
         "trust_level":      r["trust_level"],
-        "trust_score":      round(float(r["trust_score"] or 0.33), 3),
-        "trust_confidence": round(float(r["trust_confidence"] or 0.0), 3),
+        "trust_score":      score,
+        "trust_confidence": confidence,
         "auto_threshold":   round(float(r["auto_threshold"] or 0.80), 3),
         "risk_profile":     r["risk_profile"] or "medium",
         "approvals_count":  r["approvals_count"],
         "overrides_count":  r["overrides_count"],
-        "ceiling":          bool(r["ceiling"]),
         "last_event":       r["last_event"],
     }
 
