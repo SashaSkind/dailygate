@@ -50,6 +50,7 @@ export interface Decision extends DecisionInput {
 }
 
 export type TrustLevel = "ask" | "auto";
+export type RiskProfile = "low" | "medium" | "high";
 
 export interface Trust {
   category: string;                 // matches Decision.category
@@ -57,6 +58,13 @@ export interface Trust {
   approvals_count: number;
   overrides_count: number;
   ceiling: boolean;                 // true = ALWAYS escalates; trust can never promote it
+
+  // ── Bayesian engine fields (added in v2 — optional so existing code compiles) ──
+  trust_score?: number;             // 0–1 Bayesian posterior (Beta MAP estimate, time-decayed)
+  trust_confidence?: number;        // 0–1 how certain we are (saturates with sample size)
+  auto_threshold?: number;          // score needed to reach auto (dynamic: risk profile × team culture)
+  risk_profile?: RiskProfile;       // inferred from category name; drives auto_threshold base
+  last_event?: string;              // plain-English description of last trust change
 }
 
 // GET /context response

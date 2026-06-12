@@ -20,6 +20,14 @@ guild.local.json
 data/**/*.local.*
 *.clickhouse
 *.sqlite
+*.db
+*.db-shm
+*.db-wal
+
+# python
+__pycache__/
+*.pyc
+*.pyo
 
 # misc
 .DS_Store
