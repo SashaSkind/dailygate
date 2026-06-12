@@ -14,6 +14,11 @@
 
 cd "$(dirname "$0")"
 
+# Load .env if present (never committed — put your keys there)
+if [[ -f .env ]]; then
+  set -a && source .env && set +a
+fi
+
 if [[ "$1" == "--reset" ]]; then
   echo "Resetting database..."
   rm -f dailygate.db dailygate.db-shm dailygate.db-wal
