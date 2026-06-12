@@ -7,6 +7,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 from database import get_conn, init_db
 from trust import recompute_all
+import langfuse_client as lf_client
 
 
 def _log(msg: str) -> None:
@@ -172,6 +173,10 @@ def seed():
     with get_conn() as conn:
         recompute_all(conn)
         _log("Trust scores recomputed from decision history.")
+
+    # Push historical decisions to Langfuse so the dashboard is pre-populated
+    with get_conn() as conn:
+        lf_client.seed_history_to_langfuse(conn)
 
 
 if __name__ == "__main__":

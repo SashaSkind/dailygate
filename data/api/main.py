@@ -21,6 +21,7 @@ from pydantic import BaseModel
 from database import init_db, get_conn
 from trust import recompute, recompute_all, explain as trust_explain, autonomy_level
 from seed import seed
+import langfuse_client as lf_client
 
 app = FastAPI(title="DailyGate Data API", version="2.0.0")
 
@@ -142,6 +143,8 @@ def post_decision(body: DecisionInput):
     """
     Upsert decision by id. Recompute Bayesian trust. Return { decision, trust }.
     Re-called to flip pending→approved/overridden once manager responds.
+    Every call emits a Langfuse trace — manager responses become Langfuse Scores,
+    closing the human-feedback loop that drives the Bayesian engine.
     """
     valid_stakes    = {"low", "high"}
     valid_responses = {"approved", "overridden", "edited", "pending", "n/a"}
@@ -152,12 +155,25 @@ def post_decision(body: DecisionInput):
         raise HTTPException(400, f"manager_response must be one of {valid_responses}")
 
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    is_resolution = False  # true when pending→resolved
 
     with get_conn() as conn:
         existing = conn.execute(
-            "SELECT timestamp FROM decision WHERE id = ?", (body.id,)
+            "SELECT timestamp, manager_response FROM decision WHERE id = ?", (body.id,)
         ).fetchone()
         timestamp = existing["timestamp"] if existing else now
+        if existing and existing["manager_response"] == "pending" and body.manager_response != "pending":
+            is_resolution = True
+
+        # Capture trust state BEFORE recompute for Langfuse delta tracking
+        trust_row_before = conn.execute(
+            "SELECT * FROM trust WHERE category = ?", (body.category,)
+        ).fetchone()
+        trust_before = _trust(trust_row_before) if trust_row_before else {
+            "trust_level": "ask", "trust_score": 0.33, "trust_confidence": 0.0,
+            "auto_threshold": 0.80, "risk_profile": "medium",
+            "ceiling": False, "approvals_count": 0, "overrides_count": 0,
+        }
 
         conn.execute(
             """INSERT INTO decision
@@ -182,11 +198,33 @@ def post_decision(body: DecisionInput):
         updated_trust = recompute(conn, body.category, decision_id=body.id)
         stored = conn.execute("SELECT * FROM decision WHERE id = ?", (body.id,)).fetchone()
 
-    return {
-        "decision": _decision(stored),
-        "trust":    _trust(updated_trust) if isinstance(updated_trust, dict)
-                    else {k: updated_trust[k] for k in updated_trust.keys()},
-    }
+    trust_out = _trust(updated_trust) if isinstance(updated_trust, dict) else dict(updated_trust)
+
+    # ── Langfuse: emit trace or update scores ─────────────────────────────────
+    if is_resolution:
+        # Manager just resolved a pending escalation — update the existing trace's scores
+        lf_client.update_manager_response(
+            decision_id=body.id,
+            manager_response=body.manager_response,
+            category=body.category,
+            trust_after=trust_out,
+        )
+    else:
+        # New decision or first-time record — full trace with span + all scores
+        lf_client.trace_decision(
+            decision_id=body.id,
+            category=body.category,
+            action=body.action,
+            stakes=body.stakes,
+            reversible=body.reversible,
+            was_autonomous=body.was_autonomous,
+            manager_response=body.manager_response,
+            trust_before=trust_before,
+            trust_after=trust_out,
+            timestamp=timestamp,
+        )
+
+    return {"decision": _decision(stored), "trust": trust_out}
 
 
 # ── Trust intelligence endpoints ──────────────────────────────────────────────
@@ -245,6 +283,17 @@ def feed_trust_events(limit: int = 50):
     return {"events": [_trust_event(r) for r in rows]}
 
 
+@app.get("/feeds/langfuse")
+def feed_langfuse():
+    """
+    Deep-links to Langfuse sessions per trust category.
+    Each session shows the full trust arc for that category —
+    override → rebuild → earned autonomy — in Langfuse's UI.
+    """
+    return {"sessions": lf_client.langfuse_links()}
+
+
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    lf_active = lf_client._client() is not None
+    return {"status": "ok", "langfuse": "connected" if lf_active else "not configured"}
