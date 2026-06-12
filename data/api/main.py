@@ -198,7 +198,7 @@ def post_decision(body: DecisionInput):
         updated_trust = recompute(conn, body.category, decision_id=body.id)
         stored = conn.execute("SELECT * FROM decision WHERE id = ?", (body.id,)).fetchone()
 
-    trust_out = _trust(updated_trust) if isinstance(updated_trust, dict) else dict(updated_trust)
+    trust_out = _trust(updated_trust)
 
     # ── Langfuse: emit trace or update scores ─────────────────────────────────
     if is_resolution:
