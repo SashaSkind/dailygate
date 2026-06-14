@@ -28,7 +28,10 @@ For the given work item, ACT — actually carry out the needed action with your 
     arguments: { recipient_email, subject, body }
   Write a short, warm subject + body for the item. Use the recipient_email given in
   the task. Actually invoke the tool — do not just describe it.
-- GITHUB items: assign / close / comment / label using your GitHub tools.
+- GITHUB items: ACTUALLY perform the action via your GitHub tools, using the owner,
+  repo and issue_number given in the task. Use github_issues_create_comment to post a
+  comment, then github_issues_update with state "closed" to close. Really invoke the
+  tools — do not just describe them.
 
 Respond with EXACTLY one line:
   ACTED · <category> · <action taken> · (via <tool name>)

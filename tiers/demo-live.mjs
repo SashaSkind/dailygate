@@ -57,11 +57,13 @@ line(`  → routed   ${tier.toUpperCase()} tier  (Guild grants it exactly these 
 
 // ── 3. GUILD TIER AGENT REASONS ─────────────────────────────────────────────────
 const recipient = process.env.DEMO_EMAIL_TO || "the manager's email";
+const [OWNER, REPONAME] = REPO.split("/");
+const repoCtx = `owner "${OWNER}", repo "${REPONAME}", issue_number ${num}`;
 const needed = isEmail
   ? `send the stale thank-you email to the design partner; recipient_email is ${recipient}`
   : level >= 2
-    ? `triage and close issue #${num} as resolved`
-    : `post a brief review comment and add a needs-review label on issue #${num}`;
+    ? `triage issue #${num} (${repoCtx}): post a brief comment, then close it as resolved — actually invoke the GitHub tools`
+    : `review issue #${num} (${repoCtx}): post a brief review comment and add a needs-review label — actually invoke the GitHub tools`;
 const input = JSON.stringify({ id: isEmail ? "email-7" : `gh-${num}`, title, category, needed_action: needed });
 const res = spawnSync(
   GUILD[0],
@@ -84,18 +86,11 @@ if (acted && !t.ceiling && isEmail) {
   line(`    the routine agent invoked the Composio Gmail tool live during this run.`);
   executed = "email sent (composio)";
 } else if (acted && !t.ceiling) {
-  const body = level >= 2
-    ? `🤖 **DailyGate** triaged this autonomously — \`${category}\` is at trust level ${level} (score ${t.trust_score}), so I'm resolving it. _No human needed._`
-    : `🤖 **DailyGate** reviewed this autonomously — \`${category}\` is at trust level ${level}; flagging for human review (not yet trusted to merge).`;
-  sh("gh", ["issue", "comment", num, "-R", REPO, "--body", body]);
-  line(`  ✓ commented on ${REPO}#${num}`);
-  if (level >= 2) {
-    sh("gh", ["issue", "close", num, "-R", REPO]);
-    line(`  ✓ CLOSED ${REPO}#${num}  —  task done ✅`);
-  } else {
-    sh("gh", ["issue", "edit", num, "-R", REPO, "--add-label", "needs-review"]);
-    line(`  ✓ labeled ${REPO}#${num} \`needs-review\``);
-  }
+  // The agent ACTUALLY invoked its Guild GitHub tools during the run above
+  // (github_issues_create_comment / github_issues_update) — real, through Guild.
+  line(`  ✓ executed via Guild's GitHub tools — the ${tier} agent invoked github_issues_* live`);
+  line(`    (real action through Guild's connected GitHub integration, not a local script)`);
+  executed = "github (guild)";
 } else {
   line(`  ⏸  escalated — no autonomous action (ceiling / low trust)`);
 }
