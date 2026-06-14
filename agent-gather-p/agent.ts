@@ -5,6 +5,7 @@
 
 import { guildTools, llmAgent, pick } from "@guildai/agents-sdk";
 import { slackTools } from "@guildai-services/guildai~slack";
+import { ComposioGmailTools } from "@guildai-services/sashaskind~composio-gmail";
 
 const description = `
 DailyGate GATHER agent — reads recent messages from the team's Slack and surfaces
@@ -24,9 +25,15 @@ You are DailyGate's GATHER step. You have REAL access to the manager's Slack.
 4. For each, classify a CATEGORY (issue-triage, capacity-assignment, nudge,
    thank-you-note, code-review, candidate-decision) and decide:
    - high-stakes & irreversible → ESCALATE (always)
-   - routine & reversible & confident → ACT (you may post a brief acknowledgement
-     with slack_chat_post_message)
+   - routine & reversible & confident → ACT
    - else → ESCALATE
+
+# Acting
+- If a message asks to SEND AN EMAIL (e.g. "send a thank-you email to X"), ACTUALLY
+  send it: call composio_gmail_composio_gmail_send with user_id "dailygate" and
+  arguments { recipient_email (the address from the message), subject, body }. Write
+  a short warm subject + body. Really invoke the tool — do not just acknowledge.
+- You may also post a brief confirmation back to the channel with slack_chat_post_message.
 
 # Output
 First show WHAT YOU FETCHED (channel + a few real message snippets) so it's clear
@@ -44,6 +51,7 @@ export default llmAgent({
       "slack_conversations_history",
       "slack_chat_post_message",
     ]),
+    ...pick(ComposioGmailTools, ["composio_gmail_composio_gmail_send"]),
     ...pick(guildTools, ["guild_get_me"]),
   },
   systemPrompt,
