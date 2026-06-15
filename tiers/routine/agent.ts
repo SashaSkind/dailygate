@@ -6,7 +6,7 @@
 
 import { guildTools, llmAgent, pick } from "@guildai/agents-sdk";
 import { gitHubTools } from "@guildai-services/guildai~github";
-import { ComposioGmailTools } from "@guildai-services/sashaskind~composio-gmail";
+import { ComposioGmailTools } from "@guildai-services/daily-gate~composio-gmail";
 import { z } from "zod";
 
 const description = `

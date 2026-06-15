@@ -22,8 +22,8 @@
   "dependencies": {
     "@guildai/agents-sdk": "*",
     "@guildai-services/guildai~github": "*",
-    "@guildai-services/sashaskind~composio-gmail": "*",
-    "zod": "^4.3.0"
+    "zod": "^4.3.0",
+    "@guildai-services/daily-gate~composio-gmail": "*"
   },
   "files": [
     "./dist/**/*.js",
