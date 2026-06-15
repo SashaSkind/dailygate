@@ -9,9 +9,9 @@
 
 import { llmAgent } from "@guildai/agents-sdk";
 import { z } from "zod";
-import observerTool from "@guildai/sashaskind~dailygate-cautious/tool";   // L0 read-only
-import reversibleTool from "@guildai/sashaskind~dailygate-reversible/tool"; // L1 comment/label
-import routineTool from "@guildai/sashaskind~dailygate-trusted/tool";      // L2 assign/close/email
+import observerTool from "@guildai/daily-gate~dailygate-observer/tool";    // L0 read-only
+import reversibleTool from "@guildai/daily-gate~dailygate-reversible/tool"; // L1 comment/label
+import routineTool from "@guildai/daily-gate~dailygate-routine/tool";       // L2 assign/close/email
 
 const description = `
 DailyGate router — the entry point for the earned-autonomy agent. Given a work item,

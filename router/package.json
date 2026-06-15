@@ -21,10 +21,10 @@
   },
   "dependencies": {
     "@guildai/agents-sdk": "*",
-    "@guildai/sashaskind~dailygate-cautious": "*",
-    "@guildai/sashaskind~dailygate-reversible": "*",
-    "@guildai/sashaskind~dailygate-trusted": "*",
-    "zod": "^4.3.0"
+    "zod": "^4.3.0",
+    "@guildai/daily-gate~dailygate-observer": "*",
+    "@guildai/daily-gate~dailygate-reversible": "*",
+    "@guildai/daily-gate~dailygate-routine": "*"
   },
   "files": [
     "./dist/**/*.js",
