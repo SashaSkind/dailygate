@@ -1,31 +1,35 @@
 #!/usr/bin/env bash
-# Publish the 3 permission-tier agents so the router can delegate to them.
-# Each tier is a SEPARATE Guild agent with a DIFFERENT tool grant — that's what
-# makes earned autonomy real (Guild-governed permissions), not a prompt flag.
+# Publish / update the org-owned earned-autonomy ladder.
 #
-#   observer   (L0) — read-only            → can only escalate
-#   reversible (L1) — comment / label      → reversible low-stakes writes
-#   routine    (L2) — assign/close/email   → routine work (GitHub + Composio Gmail)
+#   daily-gate~dailygate-router            ← the ONE agent a user installs
+#     ├─ daily-gate~dailygate-observer     L0 read-only        (escalates)
+#     ├─ daily-gate~dailygate-reversible   L1 comment/label
+#     └─ daily-gate~dailygate-routine      L2 assign/close + Composio email (org integration)
 #
-# The local tier dirs lost their Guild git link (repo de-nesting), so we publish
-# each via a fresh Guild clone + our source. Run from repo root.
+# Each tier is a SEPARATE Guild agent with a DIFFERENT tool grant — that's what makes
+# earned autonomy real (Guild-governed permissions), not a prompt flag. All org-owned
+# so they run in the org workspace on the org's own connected credentials.
+#
+# This updates EXISTING org agents from local source. (First-time creation was via
+# `guild agent fork ... --owner daily-gate`.) Run from repo root.
 set -euo pipefail
-WS="sashaskind/daily-gate"
-# function (not a var) — zsh does NOT word-split unquoted vars like bash does.
-GCLI() { npx -y @guildai/cli@0.12.3 "$@"; }
+WS="daily-gate/team"
+GCLI() { npx -y @guildai/cli@0.12.3 "$@"; }   # function, not a var — zsh won't word-split a var
 
-publish_tier() {
-  local tier=$1 name=$2
-  rm -rf "/tmp/pub-$tier"
-  GCLI agent clone "sashaskind~$name" --directory "/tmp/pub-$tier"   # clone includes guild.json
-  cp "tiers/$tier/agent.ts" "tiers/$tier/package.json" "/tmp/pub-$tier/"
-  ( cd "/tmp/pub-$tier" && GCLI agent save --all -m "publish tier $name" --publish )
-  GCLI workspace agent add "sashaskind~$name" --workspace "$WS"
+# Clone the Guild-linked copy, drop in the latest agent.ts, publish, add to workspace.
+# (Each agent's package.json — org name + deps — is maintained in the published agent.)
+publish_agent() {
+  local name=$1 srcdir=$2
+  rm -rf "/tmp/pub-$name"
+  GCLI agent clone "daily-gate~$name" --directory "/tmp/pub-$name"
+  cp "$srcdir/agent.ts" "/tmp/pub-$name/agent.ts"
+  ( cd "/tmp/pub-$name" && GCLI agent save --all -m "publish $name" --publish )
+  GCLI workspace agent add "daily-gate~$name" --workspace "$WS"
 }
 
-publish_tier observer   dailygate-cautious      # L0
-publish_tier reversible dailygate-reversible    # L1
-publish_tier routine    dailygate-trusted       # L2
+publish_agent dailygate-observer   tiers/observer
+publish_agent dailygate-reversible tiers/reversible
+publish_agent dailygate-routine    tiers/routine
+publish_agent dailygate-router     router
 
-echo "Published: dailygate-cautious (L0) · dailygate-reversible (L1) · dailygate-trusted (L2)"
-echo "The router imports each tier's auto-generated /tool subpackage to delegate."
+echo "Published org ladder under $WS."
