@@ -1,0 +1,36 @@
+openapi: 3.0.3
+info:
+  title: DailyGate Trust
+  version: 1.0.0
+  description: Live Bayesian trust — the earned autonomy level per category.
+servers:
+  - url: https://engage-batman-suffered-jack.trycloudflare.com
+paths:
+  /context:
+    get:
+      operationId: get_context
+      summary: Read the live Bayesian trust — earned autonomy_level per work category.
+      responses:
+        "200":
+          description: snapshot with trust levels
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Context"
+components:
+  schemas:
+    Context:
+      type: object
+      properties:
+        trust:
+          type: array
+          items:
+            $ref: "#/components/schemas/Trust"
+    Trust:
+      type: object
+      properties:
+        category: { type: string }
+        autonomy_level: { type: integer, description: "0 observer, 1 reversible, 2 routine" }
+        trust_score: { type: number }
+        trust_level: { type: string }
+        ceiling: { type: boolean }

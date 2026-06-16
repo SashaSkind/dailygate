@@ -25,7 +25,8 @@
     "@guildai/daily-gate~dailygate-observer": "*",
     "@guildai/daily-gate~dailygate-reversible": "*",
     "@guildai/daily-gate~dailygate-routine": "*",
-    "@guildai/daily-gate~dailygate-coder": "*"
+    "@guildai/daily-gate~dailygate-coder": "*",
+    "@guildai-services/daily-gate~dailygate-trust": "*"
   },
   "files": [
     "./dist/**/*.js",

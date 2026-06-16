@@ -1,59 +1,51 @@
 // DailyGate — ROUTER agent. The single installable entry point. It reads how much
-// autonomy a work item's CATEGORY has earned and delegates to the matching
-// permission tier — each tier a separate Guild agent with a different tool grant.
-// Promotion to a higher tier literally hands the work to an agent Guild has granted
-// more tools. That's earned autonomy as real permissions, not a prompt flag.
-//
-// The tiers (and the coder) are this agent's dependencies (their /tool packages),
-// so installing the router installs the whole ladder — one install for the user.
+// autonomy a work item's CATEGORY has earned — LIVE from the Bayesian trust engine
+// (the dailygate_trust_get_context tool) — and delegates to the matching permission
+// tier. Promotion to a higher tier literally hands the work to an agent Guild has
+// granted more tools. Earned autonomy as real permissions, driven by a real model.
 
-import { llmAgent } from "@guildai/agents-sdk";
+import { llmAgent, pick } from "@guildai/agents-sdk";
 import { z } from "zod";
 import observerTool from "@guildai/daily-gate~dailygate-observer/tool";    // L0 read-only
 import reversibleTool from "@guildai/daily-gate~dailygate-reversible/tool"; // L1 comment/label
 import routineTool from "@guildai/daily-gate~dailygate-routine/tool";       // L2 assign/close/email
 import coderTool from "@guildai/daily-gate~dailygate-coder/tool";           // code-fix: opens a PR
+import { DailygateTrustTools } from "@guildai-services/daily-gate~dailygate-trust"; // live Bayesian trust
 
 const description = `
-DailyGate router — the entry point for the earned-autonomy agent. Given a work item,
-it classifies the category, looks up the autonomy it has earned, and delegates to the
-right permission tier (observer / reversible / routine), or — for trusted code-fix
-work — to the coder, which opens a PR. High-stakes categories are capped and escalate.
+DailyGate router — the entry point for the earned-autonomy agent. It reads the live
+Bayesian trust level for the work's category and delegates to the right permission
+tier (observer / reversible / routine), or — for trusted code-fix work — to the coder,
+which opens a PR. High-stakes categories are capped and escalate.
 `;
 
 const systemPrompt = `
 You are the DailyGate ROUTER. You receive ONE work item and route it to the correct
-permission level based on how much autonomy that work's CATEGORY has earned.
+permission level based on how much autonomy that work's CATEGORY has EARNED.
 
 # Steps
 1. Classify the work item into a CATEGORY (issue-triage, capacity-assignment, nudge,
    thank-you-note, code-review, candidate-decision, or "code-fix" if the item asks for
    an actual code change / fix / PR).
-2. Look up the earned AUTONOMY LEVEL from the TRUST TABLE below.
-3. CEILING categories (candidate-decision, or anything hiring/firing/irreversible or
-   touching money/a person's standing) are CAPPED at level 0, no matter the score.
-4. DELEGATE — call exactly ONE tool:
+2. Call **dailygate_trust_get_context** to read the LIVE Bayesian trust. Find the row
+   whose category matches; use its "autonomy_level" (0/1/2) and "ceiling". This is the
+   real, learned trust — ALWAYS use it. (Only if the call fails, fall back to the
+   table at the bottom.)
+3. CEILING categories (ceiling=true, e.g. candidate-decision, or anything hiring/
+   firing/irreversible) are CAPPED at level 0, no matter the score.
+4. DELEGATE — call exactly ONE delegation tool:
    - code-fix AND level >= 2 → call "coder" with { repo, issue_number, title, body }.
-     The coder makes the smallest fix in a sandbox and opens a PR. It refuses
-     anything non-trivial.
    - code-fix AND level < 2 → call "observer" (escalate — not yet trusted to touch code).
-   - else, by level:
-       0 → "observer" (read-only; escalates)
-       1 → "reversible" (comment / label / nudge)
-       2 → "routine" (assign / close / send email)
-     Call the tier with { id, title, category, needed_action }.
-5. Report: the category, the earned level, which tool you used, and what it did.
+   - else, by level: 0 → "observer", 1 → "reversible", 2 → "routine"
+     (call the tier with { id, title, category, needed_action }).
+5. Report: the category, the LIVE level you read (and that you read it from the trust
+   engine), which tool you used, and what it did.
 
-# TRUST TABLE (earned autonomy per category — in production this comes from the
-# Bayesian trust engine; embedded here)
-issue-triage = 2 · capacity-assignment = 2 · thank-you-note = 2
-nudge = 1 · code-review = 1
-code-fix = 0   (starts LOCKED — editing code is high-stakes; it must EARN level 2
-                via the Bayesian engine before DailyGate opens PRs on its own)
-candidate-decision = 0 (CEILING)
-Unknown category → level 0.
+# FALLBACK TABLE (only if the trust call fails)
+issue-triage=2 · capacity-assignment=2 · thank-you-note=2 · nudge=1 · code-review=1
+code-fix=0 · candidate-decision=0(ceiling) · unknown=0
 
-Call only ONE tool. Do not invent results — report what it returns.
+Call exactly one delegation tool. Do not invent results — report what it returns.
 `;
 
 export default llmAgent({
@@ -68,6 +60,7 @@ export default llmAgent({
   inputTemplate:
     "Work item {{id}}: {{title}}. Needed action: {{needed_action}}. Repo: {{repo}} #{{issue_number}}",
   tools: {
+    ...pick(DailygateTrustTools, ["dailygate_trust_get_context"]),
     observer: observerTool,
     reversible: reversibleTool,
     routine: routineTool,
