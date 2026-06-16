@@ -1,0 +1,26 @@
+# Fly.io config for the DailyGate trust API. Deploy from data/api/.
+#   fly auth login
+#   fly launch --copy-config --name dailygate-api --region iad --now
+# (or, if the app exists:  fly deploy)
+app = "dailygate-api"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port = 8000        # the container listens on $PORT (default 8000)
+  force_https = true
+  auto_stop_machines = "suspend"   # fast resume; near-zero cost when idle
+  auto_start_machines = true
+  min_machines_running = 0         # set to 1 for always-warm (no resume latency)
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
+
+# Optional: persist SQLite across deploys (else it reseeds on each boot).
+#   fly volumes create dailygate_data --size 1 --region iad
+# [mounts]
+#   source = "dailygate_data"
+#   destination = "/app/data"   # and point DB_PATH at /app/data/dailygate.db
