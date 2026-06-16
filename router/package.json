@@ -24,7 +24,8 @@
     "zod": "^4.3.0",
     "@guildai/daily-gate~dailygate-observer": "*",
     "@guildai/daily-gate~dailygate-reversible": "*",
-    "@guildai/daily-gate~dailygate-routine": "*"
+    "@guildai/daily-gate~dailygate-routine": "*",
+    "@guildai/daily-gate~dailygate-coder": "*"
   },
   "files": [
     "./dist/**/*.js",
