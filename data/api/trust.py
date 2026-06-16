@@ -17,7 +17,7 @@ Frozen contract constants (must match Person A):
 import math
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional
 
 # ── Frozen contract (Person A reads trust_level, so these rules map onto it) ─
 CONSECUTIVE_APPROVALS_NEEDED = 3  # Legacy constant kept for contract docs
@@ -122,7 +122,7 @@ def _get_team_override_rate(conn) -> float:
 
 def _compute_bayesian_score(
     conn, category: str, half_life: float
-) -> Tuple[float, float, float, float]:
+) -> tuple[float, float, float, float]:
     """
     Compute (weighted_alpha, weighted_beta, trust_score, trust_confidence).
 
