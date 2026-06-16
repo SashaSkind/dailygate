@@ -48,8 +48,8 @@ permission level based on how much autonomy that work's CATEGORY has earned.
 # Bayesian trust engine; embedded here)
 issue-triage = 2 · capacity-assignment = 2 · thank-you-note = 2
 nudge = 1 · code-review = 1
-code-fix = 0   (starts LOCKED — editing code is high-stakes; it must EARN level 2 before
-                DailyGate opens PRs on its own)
+code-fix = 0   (starts LOCKED — editing code is high-stakes; it must EARN level 2
+                via the Bayesian engine before DailyGate opens PRs on its own)
 candidate-decision = 0 (CEILING)
 Unknown category → level 0.
 
