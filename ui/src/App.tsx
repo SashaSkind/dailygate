@@ -8,6 +8,7 @@ import { TrustEventStream } from "./components/TrustEventStream";
 import { TimeSavings } from "./components/TimeSavings";
 import { EscalationQueue } from "./components/EscalationQueue";
 import { AutonomyFeed } from "./components/AutonomyFeed";
+import { WorkItemList } from "./components/WorkItemList";
 import { TrustToast, tierLabel, type TrustChange } from "./components/TrustToast";
 import "./styles.css";
 
@@ -133,6 +134,7 @@ export default function App() {
       <div className="main-grid">
         <div>
           <ExecutionPanel onComplete={reload} />
+          <WorkItemList items={ctx?.work_items ?? []} workload={ctx?.workload ?? []} onGather={reload} />
           <EscalationQueue onResolve={reload} />
           <AutonomyFeed />
         </div>

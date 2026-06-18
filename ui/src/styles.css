@@ -210,7 +210,28 @@ code { font-family: var(--font-mono); font-size: 12px; }
 .btn-red:hover   { background: #ffe4e6; }
 .btn-ghost    { background: transparent; border-color: var(--border); color: var(--text-2); }
 .btn-ghost:hover  { background: var(--surface-2); }
+.btn-blue     { background: var(--blue-bg);   border-color: var(--blue-bdr);   color: var(--blue); }
+.btn-blue:hover  { background: #dbeafe; }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ── P2: connect a real repo ── */
+.repo-connect { display: flex; gap: 8px; margin: 4px 0 10px; }
+.repo-input {
+  flex: 1;
+  padding: 7px 11px;
+  font-size: 13px;
+  font-family: var(--font-mono);
+  border: 1px solid var(--border-2);
+  border-radius: 7px;
+  background: var(--surface-2);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.12s;
+}
+.repo-input:focus { border-color: var(--blue-bdr); }
+.repo-msg { font-size: 12px; font-family: var(--font-mono); margin: -4px 0 10px; }
+.repo-msg.ok  { color: var(--green); }
+.repo-msg.err { color: var(--red); }
 
 /* ── Error banner ── */
 .error-banner {

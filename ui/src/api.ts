@@ -36,6 +36,17 @@ export const getEscalationQueue = () => get<{ decisions: Decision[] }>("/feeds/e
 // Confirm a key resolves to a tenant — used by the org switcher to validate input.
 export const whoami = () => get<{ tenant: string }>("/whoami");
 
+// Pull real GitHub issues for this org from owner/repo into the work queue.
+export async function gather(repo: string, token?: string): Promise<{ repo: string; synced: number }> {
+  const r = await fetch(`${BASE}/gather`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ repo, token: token || null }),
+  });
+  if (!r.ok) throw new Error(`${(await r.json().catch(() => ({}))).detail || r.status}`);
+  return r.json();
+}
+
 export async function runDemo(itemId: string): Promise<DemoResult> {
   const r = await fetch(`${BASE}/demo/run?item_id=${encodeURIComponent(itemId)}&record=true`, {
     method: "POST",

@@ -483,6 +483,32 @@ def create_tenant(body: TenantInput):
     }
 
 
+# ── GATHER: pull real GitHub issues into a tenant's work_item table ────────────
+
+class GatherInput(BaseModel):
+    repo: str                       # "owner/repo"
+    token: Optional[str] = None     # optional GitHub token (private repos / higher limits)
+
+
+@app.post("/gather")
+def gather_repo(body: GatherInput, tn: str = Depends(tenant)):
+    """
+    Replace this tenant's GitHub work items with the live issues from `repo`.
+    Public repos work without a token. Runs the same path the CLI/cron uses.
+    """
+    import urllib.error
+    from gather_github import gather as gh_gather
+    repo = body.repo.strip().removeprefix("https://github.com/").strip("/")
+    if "/" not in repo:
+        raise HTTPException(400, "repo must be 'owner/name'")
+    try:
+        return gh_gather(repo, tn, body.token or os.environ.get("GITHUB_TOKEN"))
+    except urllib.error.HTTPError as e:
+        raise HTTPException(502, f"GitHub API {e.code}: {e.reason} for {repo}")
+    except Exception as e:
+        raise HTTPException(502, f"gather failed: {e}")
+
+
 @app.get("/health")
 def health():
     lf_active = lf_client._client() is not None
