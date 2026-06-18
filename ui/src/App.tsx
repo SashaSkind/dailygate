@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import type { ContextSnapshot, DashboardStats, Trust } from "./types";
-import { getContext, getStats, getTrustKey, setTrustKey, whoami } from "./api";
+import { getContext, getStats, whoami, hasTrustKey } from "./api";
 import { LoopDiagram } from "./components/LoopDiagram";
 import { ExecutionPanel } from "./components/ExecutionPanel";
 import { TrustLadder } from "./components/TrustLadder";
@@ -10,6 +10,7 @@ import { EscalationQueue } from "./components/EscalationQueue";
 import { AutonomyFeed } from "./components/AutonomyFeed";
 import { WorkItemList } from "./components/WorkItemList";
 import { TrustToast, tierLabel, type TrustChange } from "./components/TrustToast";
+import { Onboarding } from "./components/Onboarding";
 import "./styles.css";
 
 // Effective tier a category is operating at (ceiling forces 0).
@@ -21,6 +22,7 @@ export default function App() {
   const [err, setErr]       = useState<string | null>(null);
   const [tenant, setTenant] = useState<string | null>(null);
   const [toast, setToast]   = useState<TrustChange | null>(null);
+  const [onboard, setOnboard] = useState<boolean>(!hasTrustKey());
 
   // Remember each category's tier so we can detect promotions/demotions between snapshots.
   const prevLevels = useRef<Map<string, number> | null>(null);
@@ -65,19 +67,14 @@ export default function App() {
   // When switching orgs, forget the prior org's tiers so we don't fire a false toast.
   const resetTrustBaseline = useCallback(() => { prevLevels.current = null; }, []);
 
-  const switchOrg = useCallback(() => {
-    const next = window.prompt(
-      "Org key (X-Trust-Key). Use 'demo-key' for the demo org, or paste a key from POST /tenants:",
-      getTrustKey(),
-    );
-    if (next !== null) {
-      setTrustKey(next);
-      setCtx(null);
-      setStats(null);
-      resetTrustBaseline();
-      setToast(null);
-      reload();
-    }
+  // Called by the onboarding modal once a workspace is chosen (demo, new, or existing).
+  const enterWorkspace = useCallback((_key: string) => {
+    setCtx(null);
+    setStats(null);
+    resetTrustBaseline();
+    setToast(null);
+    setOnboard(false);
+    reload();
   }, [reload, resetTrustBaseline]);
 
   const trust = ctx?.trust ?? [];
@@ -86,6 +83,12 @@ export default function App() {
 
   return (
     <div className="app">
+      {onboard && (
+        <Onboarding
+          onEnter={enterWorkspace}
+          onDismiss={hasTrustKey() ? () => setOnboard(false) : undefined}
+        />
+      )}
       <TrustToast change={toast} onDone={() => setToast(null)} />
       <header className="topbar">
         <div className="topbar-brand">
@@ -114,7 +117,7 @@ export default function App() {
               need you
             </div>
           )}
-          <button className="org-pill" onClick={switchOrg} title="Switch org (X-Trust-Key)">
+          <button className="org-pill" onClick={() => setOnboard(true)} title="Switch workspace">
             <span className="org-dot" />
             {tenant ? `org: ${tenant}` : "set org key"}
           </button>

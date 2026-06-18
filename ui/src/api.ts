@@ -12,6 +12,12 @@ export function getTrustKey(): string {
   return localStorage.getItem(KEY_STORAGE) || "demo-key";
 }
 
+// True once the user has explicitly chosen a workspace (demo or their own).
+// Used to show the first-run onboarding only on a genuine first visit.
+export function hasTrustKey(): boolean {
+  return localStorage.getItem(KEY_STORAGE) !== null;
+}
+
 export function setTrustKey(key: string): void {
   localStorage.setItem(KEY_STORAGE, key.trim() || "demo-key");
 }
@@ -35,6 +41,19 @@ export const getEscalationQueue = () => get<{ decisions: Decision[] }>("/feeds/e
 
 // Confirm a key resolves to a tenant — used by the org switcher to validate input.
 export const whoami = () => get<{ tenant: string }>("/whoami");
+
+// Provision a brand-new org: returns its api_key + the gated starting ladder.
+export async function provisionTenant(
+  name: string,
+): Promise<{ tenant: string; api_key: string; name: string; categories: string[] }> {
+  const r = await fetch(`${BASE}/tenants`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  if (!r.ok) throw new Error(`provision → ${r.status}`);
+  return r.json();
+}
 
 // Pull real GitHub issues for this org from owner/repo into the work queue.
 export async function gather(repo: string, token?: string): Promise<{ repo: string; synced: number }> {
