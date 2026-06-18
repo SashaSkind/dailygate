@@ -42,7 +42,8 @@ def seed():
             ("triage-bot", "agent",  1, 15),  # agent
         ]
         conn.executemany(
-            "INSERT OR REPLACE INTO workload VALUES (?,?,?,?)", workload
+            "INSERT OR REPLACE INTO workload (assignee, kind, open_tasks, est_load_score) "
+            "VALUES (?,?,?,?)", workload
         )
 
         # ── WORK ITEMS (~30) ───────────────────────────────────────────────────
@@ -103,7 +104,9 @@ def seed():
             ("gh-365", "github", "Write migration script for v2 schema",      "sasha",   12, "done",        None,      "task"),
         ]
         conn.executemany(
-            "INSERT OR REPLACE INTO work_item VALUES (?,?,?,?,?,?,?,?)", items
+            "INSERT OR REPLACE INTO work_item "
+            "(id, source, title, owner_suggested, age_days, status, is_duplicate_of, type) "
+            "VALUES (?,?,?,?,?,?,?,?)", items
         )
 
         # ── TRUST ROWS (pre-seeded per §5.3) ─────────────────────────────────
@@ -162,7 +165,9 @@ def seed():
             ("d-019", "email-3", "candidate-decision", "Escalated candidate decision for Jordan",       "high", 0, 0, "pending",  ts(4)),
         ]
         conn.executemany(
-            "INSERT OR REPLACE INTO decision VALUES (?,?,?,?,?,?,?,?,?)", decisions
+            "INSERT OR REPLACE INTO decision "
+            "(id, item_id, category, action, stakes, reversible, was_autonomous, "
+            "manager_response, timestamp) VALUES (?,?,?,?,?,?,?,?,?)", decisions
         )
 
         _log(f"Seeded: {len(items)} work items, {len(workload)} assignees, "

@@ -13,21 +13,22 @@ Endpoints:
   GET  /feeds/trust-events         → trust promotion/demotion event log
   GET  /health
 """
+import os
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from database import init_db, get_conn
+from database import init_db, get_conn, resolve_tenant, ensure_tenant, DEMO_TENANT
 from trust import recompute, recompute_all, explain as trust_explain, autonomy_level
 from seed import seed
 import langfuse_client as lf_client
 from demo import DEMO_ITEMS, build_steps, TIME_PER_CATEGORY
 
-app = FastAPI(title="DailyGate Data API", version="2.0.0")
+app = FastAPI(title="DailyGate Data API", version="3.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -36,11 +37,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Admin key gates tenant provisioning. Set ADMIN_KEY in the deploy env; if unset,
+# provisioning is open (fine for the demo, lock it down for real multi-tenancy).
+ADMIN_KEY = os.environ.get("ADMIN_KEY", "")
+
 
 @app.on_event("startup")
 def startup():
     init_db()
     seed()
+
+
+# ── Multi-tenancy: resolve the caller's tenant from the X-Trust-Key header ─────
+
+def tenant(x_trust_key: Optional[str] = Header(default=None)) -> str:
+    """
+    Every data/trust call is scoped to the tenant that owns the api_key. Each org
+    connects the trust integration with its OWN key, so the agent only ever sees —
+    and earns — that org's autonomy. Unknown/missing key → 401.
+    """
+    with get_conn() as conn:
+        t = resolve_tenant(conn, x_trust_key)
+    if not t:
+        raise HTTPException(401, "missing or invalid X-Trust-Key")
+    return t
 
 
 # ── Serialisers ───────────────────────────────────────────────────────────────
@@ -133,17 +153,20 @@ class DecisionInput(BaseModel):
 # ── Core endpoints ────────────────────────────────────────────────────────────
 
 @app.get("/context")
-def get_context():
-    """Full snapshot. Agent reads this at the top of every run."""
+def get_context(tn: str = Depends(tenant)):
+    """Full snapshot for the caller's tenant. Agent reads this at the top of every run."""
     with get_conn() as conn:
-        work_items = [_work_item(r) for r in conn.execute("SELECT * FROM work_item").fetchall()]
-        workload   = [_workload(r)  for r in conn.execute("SELECT * FROM workload").fetchall()]
-        trust      = [_trust(r)     for r in conn.execute("SELECT * FROM trust").fetchall()]
-    return {"work_items": work_items, "workload": workload, "trust": trust}
+        work_items = [_work_item(r) for r in conn.execute(
+            "SELECT * FROM work_item WHERE tenant=?", (tn,)).fetchall()]
+        workload   = [_workload(r)  for r in conn.execute(
+            "SELECT * FROM workload WHERE tenant=?", (tn,)).fetchall()]
+        trust      = [_trust(r)     for r in conn.execute(
+            "SELECT * FROM trust WHERE tenant=?", (tn,)).fetchall()]
+    return {"tenant": tn, "work_items": work_items, "workload": workload, "trust": trust}
 
 
 @app.post("/decision")
-def post_decision(body: DecisionInput):
+def post_decision(body: DecisionInput, tn: str = Depends(tenant)):
     """
     Upsert decision by id. Recompute Bayesian trust. Return { decision, trust }.
     Re-called to flip pending→approved/overridden once manager responds.
@@ -163,7 +186,8 @@ def post_decision(body: DecisionInput):
 
     with get_conn() as conn:
         existing = conn.execute(
-            "SELECT timestamp, manager_response FROM decision WHERE id = ?", (body.id,)
+            "SELECT timestamp, manager_response FROM decision WHERE id = ? AND tenant = ?",
+            (body.id, tn),
         ).fetchone()
         timestamp = existing["timestamp"] if existing else now
         if existing and existing["manager_response"] == "pending" and body.manager_response != "pending":
@@ -171,7 +195,7 @@ def post_decision(body: DecisionInput):
 
         # Capture trust state BEFORE recompute for Langfuse delta tracking
         trust_row_before = conn.execute(
-            "SELECT * FROM trust WHERE category = ?", (body.category,)
+            "SELECT * FROM trust WHERE category = ? AND tenant = ?", (body.category, tn)
         ).fetchone()
         trust_before = _trust(trust_row_before) if trust_row_before else {
             "trust_level": "ask", "trust_score": 0.33, "trust_confidence": 0.0,
@@ -181,10 +205,10 @@ def post_decision(body: DecisionInput):
 
         conn.execute(
             """INSERT INTO decision
-               (id, item_id, category, action, stakes, reversible,
+               (tenant, id, item_id, category, action, stakes, reversible,
                 was_autonomous, manager_response, timestamp)
-               VALUES (?,?,?,?,?,?,?,?,?)
-               ON CONFLICT(id) DO UPDATE SET
+               VALUES (?,?,?,?,?,?,?,?,?,?)
+               ON CONFLICT(tenant, id) DO UPDATE SET
                  item_id          = excluded.item_id,
                  category         = excluded.category,
                  action           = excluded.action,
@@ -193,14 +217,16 @@ def post_decision(body: DecisionInput):
                  was_autonomous   = excluded.was_autonomous,
                  manager_response = excluded.manager_response""",
             (
-                body.id, body.item_id, body.category, body.action,
+                tn, body.id, body.item_id, body.category, body.action,
                 body.stakes, int(body.reversible), int(body.was_autonomous),
                 body.manager_response, timestamp,
             ),
         )
 
-        updated_trust = recompute(conn, body.category, decision_id=body.id)
-        stored = conn.execute("SELECT * FROM decision WHERE id = ?", (body.id,)).fetchone()
+        updated_trust = recompute(conn, body.category, tn, decision_id=body.id)
+        stored = conn.execute(
+            "SELECT * FROM decision WHERE id = ? AND tenant = ?", (body.id, tn)
+        ).fetchone()
 
     trust_out = _trust(updated_trust)
 
@@ -234,7 +260,7 @@ def post_decision(body: DecisionInput):
 # ── Trust intelligence endpoints ──────────────────────────────────────────────
 
 @app.get("/trust/{category}/explain")
-def explain_trust(category: str):
+def explain_trust(category: str, tn: str = Depends(tenant)):
     """
     Full audit for a trust category:
       - current score, confidence, threshold
@@ -243,46 +269,47 @@ def explain_trust(category: str):
       - plain-English explanation + path to promotion
     """
     with get_conn() as conn:
-        return trust_explain(conn, category)
+        return trust_explain(conn, category, tn)
 
 
 # ── Dashboard feeds ───────────────────────────────────────────────────────────
 
 @app.get("/feeds/autonomy")
-def feed_autonomy(limit: int = 20):
+def feed_autonomy(limit: int = 20, tn: str = Depends(tenant)):
     with get_conn() as conn:
         rows = conn.execute(
-            "SELECT * FROM decision WHERE was_autonomous=1 ORDER BY timestamp DESC LIMIT ?",
-            (limit,),
+            "SELECT * FROM decision WHERE was_autonomous=1 AND tenant=? ORDER BY timestamp DESC LIMIT ?",
+            (tn, limit),
         ).fetchall()
     return {"decisions": [_decision(r) for r in rows]}
 
 
 @app.get("/feeds/escalations")
-def feed_escalations():
+def feed_escalations(tn: str = Depends(tenant)):
     with get_conn() as conn:
         rows = conn.execute(
-            "SELECT * FROM decision WHERE manager_response='pending' ORDER BY timestamp DESC"
+            "SELECT * FROM decision WHERE manager_response='pending' AND tenant=? ORDER BY timestamp DESC",
+            (tn,),
         ).fetchall()
     return {"decisions": [_decision(r) for r in rows]}
 
 
 @app.get("/feeds/trust-dashboard")
-def feed_trust_dashboard():
+def feed_trust_dashboard(tn: str = Depends(tenant)):
     with get_conn() as conn:
         rows = conn.execute(
-            "SELECT * FROM trust ORDER BY trust_score DESC"
+            "SELECT * FROM trust WHERE tenant=? ORDER BY trust_score DESC", (tn,)
         ).fetchall()
     return {"trust": [_trust(r) for r in rows]}
 
 
 @app.get("/feeds/trust-events")
-def feed_trust_events(limit: int = 50):
+def feed_trust_events(limit: int = 50, tn: str = Depends(tenant)):
     """The learning log: every promotion, demotion, and score shift with reasons."""
     with get_conn() as conn:
         rows = conn.execute(
-            "SELECT * FROM trust_events ORDER BY timestamp DESC LIMIT ?",
-            (limit,),
+            "SELECT * FROM trust_events WHERE tenant=? ORDER BY timestamp DESC LIMIT ?",
+            (tn, limit),
         ).fetchall()
     return {"events": [_trust_event(r) for r in rows]}
 
@@ -298,7 +325,7 @@ def feed_langfuse():
 
 
 @app.post("/demo/run")
-def demo_run(item_id: str = "gh-412", record: bool = True):
+def demo_run(item_id: str = "gh-412", record: bool = True, tn: str = Depends(tenant)):
     """
     Run a scripted demo execution. Returns step-by-step narrative + trust delta.
     If record=true, records the decision and recomputes real Bayesian trust.
@@ -306,7 +333,9 @@ def demo_run(item_id: str = "gh-412", record: bool = True):
     item = DEMO_ITEMS.get(item_id, DEMO_ITEMS["gh-412"])
 
     with get_conn() as conn:
-        trust_row = conn.execute("SELECT * FROM trust WHERE category=?", (item["category"],)).fetchone()
+        trust_row = conn.execute(
+            "SELECT * FROM trust WHERE category=? AND tenant=?", (item["category"], tn)
+        ).fetchone()
 
     trust_before = _trust(trust_row) if trust_row else {
         "trust_level": "ask", "trust_score": 0.33, "trust_confidence": 0.0,
@@ -330,15 +359,15 @@ def demo_run(item_id: str = "gh-412", record: bool = True):
         with get_conn() as conn:
             conn.execute(
                 """INSERT INTO decision
-                   (id, item_id, category, action, stakes, reversible,
+                   (tenant, id, item_id, category, action, stakes, reversible,
                     was_autonomous, manager_response, timestamp)
-                   VALUES (?,?,?,?,?,?,?,?,?)
-                   ON CONFLICT(id) DO NOTHING""",
-                (decision_id, item["id"], item["category"], item["action"],
+                   VALUES (?,?,?,?,?,?,?,?,?,?)
+                   ON CONFLICT(tenant, id) DO NOTHING""",
+                (tn, decision_id, item["id"], item["category"], item["action"],
                  item["stakes"], int(item["reversible"]), int(was_autonomous),
                  manager_response, now),
             )
-            updated = recompute(conn, item["category"], decision_id=decision_id)
+            updated = recompute(conn, item["category"], tn, decision_id=decision_id)
         trust_after = _trust(updated)
 
         lf_client.trace_decision(
@@ -377,22 +406,25 @@ def demo_run(item_id: str = "gh-412", record: bool = True):
 
 
 @app.get("/feeds/stats")
-def feed_stats():
+def feed_stats(tn: str = Depends(tenant)):
     """Dashboard stats for the UI hero: time saved, counts, learning moments."""
     with get_conn() as conn:
         auto_rows = conn.execute(
-            "SELECT category, COUNT(*) as n FROM decision WHERE was_autonomous=1 GROUP BY category"
+            "SELECT category, COUNT(*) as n FROM decision WHERE was_autonomous=1 AND tenant=? GROUP BY category",
+            (tn,),
         ).fetchall()
         total_auto = sum(r["n"] for r in auto_rows)
         time_saved_min = sum(
             r["n"] * TIME_PER_CATEGORY.get(r["category"], 5) for r in auto_rows
         )
         escalation_count = conn.execute(
-            "SELECT COUNT(*) FROM decision WHERE manager_response='pending'"
+            "SELECT COUNT(*) FROM decision WHERE manager_response='pending' AND tenant=?", (tn,)
         ).fetchone()[0]
-        total_decisions = conn.execute("SELECT COUNT(*) FROM decision").fetchone()[0]
+        total_decisions = conn.execute(
+            "SELECT COUNT(*) FROM decision WHERE tenant=?", (tn,)
+        ).fetchone()[0]
         promotions = conn.execute(
-            "SELECT COUNT(*) FROM trust_events WHERE event_type='promoted'"
+            "SELECT COUNT(*) FROM trust_events WHERE event_type='promoted' AND tenant=?", (tn,)
         ).fetchone()[0]
 
     return {
@@ -405,7 +437,59 @@ def feed_stats():
     }
 
 
+# ── Tenant provisioning ───────────────────────────────────────────────────────
+
+# The standard earned-autonomy ladder every new tenant starts with — all gated,
+# earning from zero. High-stakes categories start permanently capped (ceiling).
+BASELINE_CATEGORIES = [
+    "issue-triage", "capacity-assignment", "thank-you-note",
+    "nudge", "code-review", "code-fix", "candidate-decision",
+]
+
+
+class TenantInput(BaseModel):
+    name: str
+    admin_key: Optional[str] = None
+
+
+@app.post("/tenants")
+def create_tenant(body: TenantInput):
+    """
+    Provision a NEW org. Mints a tenant id + api_key and bootstraps the full
+    earned-autonomy ladder — every category gated (observe-only), nothing trusted.
+    The org connects the trust integration with the returned api_key and earns its
+    OWN autonomy from scratch. Returns the api_key ONCE — store it.
+    """
+    if ADMIN_KEY and body.admin_key != ADMIN_KEY:
+        raise HTTPException(403, "invalid admin_key")
+
+    tenant_id = f"t-{uuid.uuid4().hex[:10]}"
+    api_key   = f"dgk_{uuid.uuid4().hex}"
+
+    with get_conn() as conn:
+        ensure_tenant(conn, api_key, tenant_id, body.name)
+        # Bootstrap the gated ladder so the new org's dashboard shows the full
+        # category set at level 0 from day one. recompute() seeds each row.
+        for cat in BASELINE_CATEGORIES:
+            recompute(conn, cat, tenant_id)
+
+    return {
+        "tenant": tenant_id,
+        "api_key": api_key,
+        "name": body.name,
+        "categories": BASELINE_CATEGORIES,
+        "note": "Connect the dailygate-trust integration with this api_key as X-Trust-Key. "
+                "Every category starts gated (level 0) and earns autonomy as you approve.",
+    }
+
+
 @app.get("/health")
 def health():
     lf_active = lf_client._client() is not None
     return {"status": "ok", "langfuse": "connected" if lf_active else "not configured"}
+
+
+@app.get("/whoami")
+def whoami(tn: str = Depends(tenant)):
+    """Echo the tenant a key resolves to — handy for verifying integration wiring."""
+    return {"tenant": tn}

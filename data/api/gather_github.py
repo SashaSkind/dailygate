@@ -55,9 +55,12 @@ def sync():
     init_db()
     issues = _fetch()
     with get_conn() as conn:
-        conn.execute("DELETE FROM work_item WHERE source = 'github'")  # replace seeded github
+        conn.execute("DELETE FROM work_item WHERE source = 'github' AND tenant = 'demo'")  # replace seeded github
         for iss in issues:
-            conn.execute("INSERT OR REPLACE INTO work_item VALUES (?,?,?,?,?,?,?,?)", _to_row(iss))
+            conn.execute(
+                "INSERT OR REPLACE INTO work_item "
+                "(id, source, title, owner_suggested, age_days, status, is_duplicate_of, type) "
+                "VALUES (?,?,?,?,?,?,?,?)", _to_row(iss))
     print(f"GATHER: synced {len(issues)} real issues from {REPO} into work_item")
 
 

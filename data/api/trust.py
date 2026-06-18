@@ -100,9 +100,9 @@ def _infer_risk_profile(category: str) -> str:
     return "medium"
 
 
-def _get_team_override_rate(conn) -> float:
+def _get_team_override_rate(conn, tenant: str) -> float:
     """
-    Global override rate across all non-ceiling categories — the team's culture signal.
+    Override rate across this tenant's non-ceiling categories — the team's culture signal.
     Trusting teams (low override rate) get lower auto thresholds.
     Cautious teams (high override rate) get higher thresholds.
     """
@@ -111,17 +111,18 @@ def _get_team_override_rate(conn) -> float:
             SUM(CASE WHEN d.manager_response IN ('overridden','edited') THEN 1.0 ELSE 0 END) AS overrides,
             COUNT(*) AS total
         FROM decision d
-        JOIN trust t ON t.category = d.category
+        JOIN trust t ON t.category = d.category AND t.tenant = d.tenant
         WHERE t.ceiling = 0
+          AND d.tenant = ?
           AND d.manager_response NOT IN ('pending', 'n/a')
-    """).fetchone()
+    """, (tenant,)).fetchone()
     if not row or not row["total"]:
         return 0.10
     return float(row["overrides"]) / float(row["total"])
 
 
 def _compute_bayesian_score(
-    conn, category: str, half_life: float
+    conn, category: str, half_life: float, tenant: str
 ) -> Tuple[float, float, float, float]:
     """
     Compute (weighted_alpha, weighted_beta, trust_score, trust_confidence).
@@ -132,8 +133,8 @@ def _compute_bayesian_score(
     """
     rows = conn.execute(
         """SELECT manager_response, was_autonomous, timestamp
-           FROM decision WHERE category = ? ORDER BY timestamp DESC""",
-        (category,),
+           FROM decision WHERE category = ? AND tenant = ? ORDER BY timestamp DESC""",
+        (category, tenant),
     ).fetchall()
 
     alpha = PRIOR_ALPHA
@@ -185,13 +186,13 @@ def _compute_threshold(risk_profile: str, team_override_rate: float) -> float:
     return max(0.50, min(0.97, base + calibration))
 
 
-def _raw_counts(conn, category: str) -> Dict[str, int]:
+def _raw_counts(conn, category: str, tenant: str) -> Dict[str, int]:
     row = conn.execute(
         """SELECT
              SUM(CASE WHEN manager_response='approved' OR was_autonomous=1 THEN 1 ELSE 0 END) AS approvals,
              SUM(CASE WHEN manager_response IN ('overridden','edited') THEN 1 ELSE 0 END) AS overrides
-           FROM decision WHERE category = ?""",
-        (category,),
+           FROM decision WHERE category = ? AND tenant = ?""",
+        (category, tenant),
     ).fetchone()
     return {
         "approvals": int(row["approvals"] or 0),
@@ -200,18 +201,18 @@ def _raw_counts(conn, category: str) -> Dict[str, int]:
 
 
 def _log_event(
-    conn, category: str, event_type: str,
+    conn, tenant: str, category: str, event_type: str,
     old_level: Optional[str], new_level: Optional[str],
     old_score: Optional[float], new_score: float, confidence: float,
     reason: str, decision_id: Optional[str],
 ) -> None:
     conn.execute(
         """INSERT INTO trust_events
-           (id, category, event_type, old_level, new_level, old_score,
+           (id, tenant, category, event_type, old_level, new_level, old_score,
             new_score, confidence, reason, decision_id, timestamp)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
         (
-            str(uuid.uuid4()), category, event_type,
+            str(uuid.uuid4()), tenant, category, event_type,
             old_level, new_level, old_score, new_score,
             confidence, reason, decision_id, _now_ts(),
         ),
@@ -242,31 +243,39 @@ def autonomy_level(trust_level: str, trust_score: float,
     return 0
 
 
-def get_or_create_trust(conn, category: str) -> Dict[str, Any]:
-    row = conn.execute("SELECT * FROM trust WHERE category = ?", (category,)).fetchone()
+def get_or_create_trust(conn, category: str, tenant: str) -> Dict[str, Any]:
+    row = conn.execute(
+        "SELECT * FROM trust WHERE category = ? AND tenant = ?", (category, tenant)
+    ).fetchone()
     if row:
         return dict(row)
 
     risk_profile = _infer_risk_profile(category)
     threshold    = RISK_THRESHOLDS.get(risk_profile, 0.80)
+    # Ceiling categories (hiring/firing/irreversible) start permanently capped, even
+    # for a brand-new tenant — high-stakes work never auto-earns autonomy.
+    ceiling = 1 if risk_profile == "high" else 0
     conn.execute(
         """INSERT INTO trust
-           (category, trust_level, trust_score, trust_confidence, auto_threshold,
+           (tenant, category, trust_level, trust_score, trust_confidence, auto_threshold,
             decay_half_life, approvals_count, overrides_count, ceiling, risk_profile, last_event)
-           VALUES (?, 'ask', 0.33, 0.0, ?, ?, 0, 0, 0, ?, ?)""",
-        (category, threshold, DEFAULT_DECAY_HALF_LIFE, risk_profile,
+           VALUES (?, ?, 'ask', 0.33, 0.0, ?, ?, 0, 0, ?, ?, ?)""",
+        (tenant, category, threshold, DEFAULT_DECAY_HALF_LIFE, ceiling, risk_profile,
          f"Bootstrapped — risk={risk_profile}, threshold={threshold:.2f}"),
     )
     _log_event(
-        conn, category, "created", None, "ask", None, 0.33, 0.0,
+        conn, tenant, category, "created", None, "ask", None, 0.33, 0.0,
         f"New category '{category}' bootstrapped — inferred risk: {risk_profile}, "
         f"threshold: {threshold:.2f}",
         None,
     )
-    return dict(conn.execute("SELECT * FROM trust WHERE category = ?", (category,)).fetchone())
+    return dict(conn.execute(
+        "SELECT * FROM trust WHERE category = ? AND tenant = ?", (category, tenant)
+    ).fetchone())
 
 
-def recompute(conn, category: str, decision_id: Optional[str] = None) -> Dict[str, Any]:
+def recompute(conn, category: str, tenant: str = "demo",
+              decision_id: Optional[str] = None) -> Dict[str, Any]:
     """
     Recompute the trust row for `category` after a new decision.
 
@@ -280,21 +289,21 @@ def recompute(conn, category: str, decision_id: Optional[str] = None) -> Dict[st
       7. Log trust_event if level or score changed meaningfully
       8. Persist and return updated row
     """
-    t = get_or_create_trust(conn, category)
+    t = get_or_create_trust(conn, category, tenant)
 
     if t["ceiling"]:
-        counts = _raw_counts(conn, category)
+        counts = _raw_counts(conn, category, tenant)
         conn.execute(
-            "UPDATE trust SET approvals_count=?, overrides_count=? WHERE category=?",
-            (counts["approvals"], counts["overrides"], category),
+            "UPDATE trust SET approvals_count=?, overrides_count=? WHERE category=? AND tenant=?",
+            (counts["approvals"], counts["overrides"], category, tenant),
         )
         t["approvals_count"] = counts["approvals"]
         t["overrides_count"]  = counts["overrides"]
         return t
 
     half_life   = t.get("decay_half_life") or DEFAULT_DECAY_HALF_LIFE
-    team_rate   = _get_team_override_rate(conn)
-    _, _, new_score, confidence = _compute_bayesian_score(conn, category, half_life)
+    team_rate   = _get_team_override_rate(conn, tenant)
+    _, _, new_score, confidence = _compute_bayesian_score(conn, category, half_life, tenant)
     threshold   = _compute_threshold(t.get("risk_profile", "medium"), team_rate)
 
     old_level = t["trust_level"]
@@ -302,8 +311,8 @@ def recompute(conn, category: str, decision_id: Optional[str] = None) -> Dict[st
 
     # Immediate demotion: most recent decision was an override
     latest = conn.execute(
-        "SELECT manager_response FROM decision WHERE category=? ORDER BY timestamp DESC LIMIT 1",
-        (category,),
+        "SELECT manager_response FROM decision WHERE category=? AND tenant=? ORDER BY timestamp DESC LIMIT 1",
+        (category, tenant),
     ).fetchone()
     immediate_demotion = bool(
         latest and latest["manager_response"] in ("overridden", "edited")
@@ -316,7 +325,7 @@ def recompute(conn, category: str, decision_id: Optional[str] = None) -> Dict[st
     else:
         new_level = "ask"
 
-    counts = _raw_counts(conn, category)
+    counts = _raw_counts(conn, category, tenant)
 
     # Build event reason and log
     if new_level != old_level:
@@ -337,7 +346,7 @@ def recompute(conn, category: str, decision_id: Optional[str] = None) -> Dict[st
                 f"(confidence {confidence:.2f})"
             )
         _log_event(
-            conn, category,
+            conn, tenant, category,
             "promoted" if new_level == "auto" else "demoted",
             old_level, new_level, old_score, new_score, confidence,
             reason, decision_id,
@@ -345,7 +354,7 @@ def recompute(conn, category: str, decision_id: Optional[str] = None) -> Dict[st
     elif abs(new_score - old_score) > 0.02:
         direction = "↑" if new_score > old_score else "↓"
         _log_event(
-            conn, category, "score_updated",
+            conn, tenant, category, "score_updated",
             old_level, new_level, old_score, new_score, confidence,
             f"Score {direction} {old_score:.2f} → {new_score:.2f} "
             f"(threshold: {threshold:.2f}, confidence: {confidence:.2f})",
@@ -361,11 +370,11 @@ def recompute(conn, category: str, decision_id: Optional[str] = None) -> Dict[st
              trust_level=?, trust_score=?, trust_confidence=?,
              auto_threshold=?, approvals_count=?, overrides_count=?,
              last_event=?
-           WHERE category=?""",
+           WHERE category=? AND tenant=?""",
         (
             new_level, new_score, confidence, threshold,
             counts["approvals"], counts["overrides"],
-            last_event_str, category,
+            last_event_str, category, tenant,
         ),
     )
 
@@ -381,33 +390,37 @@ def recompute(conn, category: str, decision_id: Optional[str] = None) -> Dict[st
     return t
 
 
-def recompute_all(conn) -> None:
-    """Bootstrap trust scores for all categories from their full decision history."""
-    categories = [r[0] for r in conn.execute("SELECT category FROM trust").fetchall()]
+def recompute_all(conn, tenant: str = "demo") -> None:
+    """Bootstrap trust scores for one tenant's categories from full decision history."""
+    categories = [
+        r[0] for r in conn.execute(
+            "SELECT category FROM trust WHERE tenant=?", (tenant,)
+        ).fetchall()
+    ]
     for cat in categories:
-        recompute(conn, cat)
+        recompute(conn, cat, tenant)
 
 
-def explain(conn, category: str) -> Dict[str, Any]:
+def explain(conn, category: str, tenant: str = "demo") -> Dict[str, Any]:
     """
     Human-readable audit trail: why this category has its current trust level,
     what drove it here, and what it would take to change.
     """
-    t = get_or_create_trust(conn, category)
+    t = get_or_create_trust(conn, category, tenant)
     half_life  = t.get("decay_half_life") or DEFAULT_DECAY_HALF_LIFE
-    team_rate  = _get_team_override_rate(conn)
+    team_rate  = _get_team_override_rate(conn, tenant)
     threshold  = _compute_threshold(t.get("risk_profile", "medium"), team_rate)
-    _, _, score, confidence = _compute_bayesian_score(conn, category, half_life)
+    _, _, score, confidence = _compute_bayesian_score(conn, category, half_life, tenant)
 
     recent_decisions = conn.execute(
         """SELECT manager_response, was_autonomous, timestamp
-           FROM decision WHERE category=? ORDER BY timestamp DESC LIMIT 10""",
-        (category,),
+           FROM decision WHERE category=? AND tenant=? ORDER BY timestamp DESC LIMIT 10""",
+        (category, tenant),
     ).fetchall()
 
     recent_events = conn.execute(
-        "SELECT * FROM trust_events WHERE category=? ORDER BY timestamp DESC LIMIT 8",
-        (category,),
+        "SELECT * FROM trust_events WHERE category=? AND tenant=? ORDER BY timestamp DESC LIMIT 8",
+        (category, tenant),
     ).fetchall()
 
     # Compute per-decision weighted contributions for transparency

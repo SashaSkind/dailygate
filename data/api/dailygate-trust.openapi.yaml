@@ -1,15 +1,21 @@
 openapi: 3.0.3
 info:
   title: DailyGate Trust
-  version: 1.0.0
-  description: Live Bayesian trust — the earned autonomy level per category.
+  version: 1.1.0
+  description: Live Bayesian trust — the earned autonomy level per category. Multi-tenant.
 servers:
   - url: https://engage-batman-suffered-jack.trycloudflare.com
+# Every call is scoped to the tenant that owns the X-Trust-Key. Each org connects
+# this integration with its OWN key, so the agent only ever sees that org's trust.
+security:
+  - TrustKey: []
 paths:
   /context:
     get:
       operationId: get_context
       summary: Read the live Bayesian trust — earned autonomy_level per work category.
+      security:
+        - TrustKey: []
       responses:
         "200":
           description: snapshot with trust levels
@@ -18,6 +24,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/Context"
 components:
+  securitySchemes:
+    TrustKey:
+      type: apiKey
+      in: header
+      name: X-Trust-Key
   schemas:
     Context:
       type: object
