@@ -110,6 +110,30 @@ code { font-family: var(--font-mono); font-size: 12px; }
 .stat-pill.plain  { background: var(--surface-2); border-color: var(--border);     color: var(--muted); }
 .stat-pill-val    { font-family: var(--font-mono); font-size: 15px; font-weight: 600; color: var(--text); }
 
+.org-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--font-mono);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.org-pill:hover { border-color: var(--blue-bdr); color: var(--text); }
+.org-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+}
+
 /* ── Section title ── */
 .section-label {
   font-size: 11px;

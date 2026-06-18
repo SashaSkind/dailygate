@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import type { ContextSnapshot, DashboardStats } from "./types";
-import { getContext, getStats } from "./api";
+import { getContext, getStats, getTrustKey, setTrustKey, whoami } from "./api";
 import { LoopDiagram } from "./components/LoopDiagram";
 import { ExecutionPanel } from "./components/ExecutionPanel";
 import { TrustLadder } from "./components/TrustLadder";
@@ -14,16 +14,32 @@ export default function App() {
   const [ctx, setCtx]       = useState<ContextSnapshot | null>(null);
   const [stats, setStats]   = useState<DashboardStats | null>(null);
   const [err, setErr]       = useState<string | null>(null);
+  const [tenant, setTenant] = useState<string | null>(null);
 
   const reload = useCallback(() => {
+    setErr(null);
     getContext().then(setCtx).catch((e) => setErr(String(e)));
     getStats().then(setStats).catch(() => {});
+    whoami().then((r) => setTenant(r.tenant)).catch(() => setTenant(null));
   }, []);
 
   useEffect(() => {
     reload();
     const id = setInterval(reload, 5000);
     return () => clearInterval(id);
+  }, [reload]);
+
+  const switchOrg = useCallback(() => {
+    const next = window.prompt(
+      "Org key (X-Trust-Key). Use 'demo-key' for the demo org, or paste a key from POST /tenants:",
+      getTrustKey(),
+    );
+    if (next !== null) {
+      setTrustKey(next);
+      setCtx(null);
+      setStats(null);
+      reload();
+    }
   }, [reload]);
 
   const trust = ctx?.trust ?? [];
@@ -59,10 +75,20 @@ export default function App() {
               need you
             </div>
           )}
+          <button className="org-pill" onClick={switchOrg} title="Switch org (X-Trust-Key)">
+            <span className="org-dot" />
+            {tenant ? `org: ${tenant}` : "set org key"}
+          </button>
         </div>
       </header>
 
-      {err && <div className="error-banner">API unreachable — run <code>data/api/start.sh</code> on :8001</div>}
+      {err && (
+        <div className="error-banner">
+          {err.includes("401")
+            ? <>Unauthorized — wrong or missing org key. Click <b>“set org key”</b> (use <code>demo-key</code>).</>
+            : <>API unreachable — run <code>data/api/start.sh</code> on :8001</>}
+        </div>
+      )}
 
       <LoopDiagram />
 
