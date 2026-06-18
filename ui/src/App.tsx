@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback } from "react";
-import type { ContextSnapshot, DashboardStats } from "./types";
+import { useEffect, useState, useCallback, useRef } from "react";
+import type { ContextSnapshot, DashboardStats, Trust } from "./types";
 import { getContext, getStats, getTrustKey, setTrustKey, whoami } from "./api";
 import { LoopDiagram } from "./components/LoopDiagram";
 import { ExecutionPanel } from "./components/ExecutionPanel";
@@ -8,26 +8,61 @@ import { TrustEventStream } from "./components/TrustEventStream";
 import { TimeSavings } from "./components/TimeSavings";
 import { EscalationQueue } from "./components/EscalationQueue";
 import { AutonomyFeed } from "./components/AutonomyFeed";
+import { TrustToast, tierLabel, type TrustChange } from "./components/TrustToast";
 import "./styles.css";
+
+// Effective tier a category is operating at (ceiling forces 0).
+const effLevel = (t: Trust) => (t.ceiling ? 0 : t.autonomy_level);
 
 export default function App() {
   const [ctx, setCtx]       = useState<ContextSnapshot | null>(null);
   const [stats, setStats]   = useState<DashboardStats | null>(null);
   const [err, setErr]       = useState<string | null>(null);
   const [tenant, setTenant] = useState<string | null>(null);
+  const [toast, setToast]   = useState<TrustChange | null>(null);
+
+  // Remember each category's tier so we can detect promotions/demotions between snapshots.
+  const prevLevels = useRef<Map<string, number> | null>(null);
+
+  const onTrust = useCallback((snap: ContextSnapshot) => {
+    setCtx(snap);
+    const next = new Map(snap.trust.map((t) => [t.category, effLevel(t)]));
+    const prev = prevLevels.current;
+    if (prev) {
+      // Surface the single most notable change: promotions first, then demotions.
+      let best: TrustChange | null = null;
+      for (const t of snap.trust) {
+        const from = prev.get(t.category);
+        const to = effLevel(t);
+        if (from === undefined || from === to) continue;
+        const kind = to > from ? "promoted" : "demoted";
+        const cand: TrustChange = {
+          key: `${t.category}-${from}-${to}-${Date.now()}`,
+          category: t.category, kind,
+          fromLabel: tierLabel(from), toLabel: tierLabel(to),
+        };
+        if (!best || (kind === "promoted" && best.kind !== "promoted")) best = cand;
+      }
+      if (best) setToast(best);
+    }
+    prevLevels.current = next;
+  }, []);
 
   const reload = useCallback(() => {
     setErr(null);
-    getContext().then(setCtx).catch((e) => setErr(String(e)));
+    getContext().then(onTrust).catch((e) => setErr(String(e)));
     getStats().then(setStats).catch(() => {});
     whoami().then((r) => setTenant(r.tenant)).catch(() => setTenant(null));
-  }, []);
+  }, [onTrust]);
 
   useEffect(() => {
     reload();
     const id = setInterval(reload, 5000);
     return () => clearInterval(id);
   }, [reload]);
+
+  // When switching orgs, forget the prior org's tiers so we don't fire a false toast.
+  const resetTrustBaseline = useCallback(() => { prevLevels.current = null; }, []);
 
   const switchOrg = useCallback(() => {
     const next = window.prompt(
@@ -38,9 +73,11 @@ export default function App() {
       setTrustKey(next);
       setCtx(null);
       setStats(null);
+      resetTrustBaseline();
+      setToast(null);
       reload();
     }
-  }, [reload]);
+  }, [reload, resetTrustBaseline]);
 
   const trust = ctx?.trust ?? [];
   const hours = stats ? (stats.time_saved_min / 60).toFixed(1) : "—";
@@ -48,6 +85,7 @@ export default function App() {
 
   return (
     <div className="app">
+      <TrustToast change={toast} onDone={() => setToast(null)} />
       <header className="topbar">
         <div className="topbar-brand">
           <div className="live-ring" />
@@ -95,11 +133,11 @@ export default function App() {
       <div className="main-grid">
         <div>
           <ExecutionPanel onComplete={reload} />
-          <EscalationQueue />
+          <EscalationQueue onResolve={reload} />
           <AutonomyFeed />
         </div>
         <div>
-          <TrustLadder trust={trust} />
+          <TrustLadder trust={trust} onTeach={reload} />
           <TimeSavings stats={stats} trust={trust} />
           <TrustEventStream />
         </div>

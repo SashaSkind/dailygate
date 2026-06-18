@@ -45,6 +45,31 @@ export async function runDemo(itemId: string): Promise<DemoResult> {
   return r.json();
 }
 
+// Record a manager approval for a category — the real signal that drives trust up.
+// Used by the "teach" affordance to let you watch a category earn its way to L2.
+export async function teach(
+  category: string,
+  response: "approved" | "overridden" = "approved",
+): Promise<void> {
+  const r = await fetch(`${BASE}/decision`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({
+      id: `teach-${category}-${Date.now()}`,
+      item_id: null,
+      category,
+      action: response === "approved"
+        ? `Manager approved a ${category} action`
+        : `Manager overrode a ${category} action`,
+      stakes: "low",
+      reversible: true,
+      was_autonomous: false,
+      manager_response: response,
+    }),
+  });
+  if (!r.ok) throw new Error(`teach → ${r.status}`);
+}
+
 export async function resolveEscalation(
   decision: Decision,
   response: "approved" | "overridden" | "edited",

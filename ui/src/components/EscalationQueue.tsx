@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import type { Decision } from "../types";
 import { getEscalationQueue, resolveEscalation } from "../api";
 
-export function EscalationQueue() {
+export function EscalationQueue({ onResolve }: { onResolve?: () => void }) {
   const [items, setItems] = useState<Decision[]>([]);
+  const [busy, setBusy] = useState<string | null>(null);
   const load = () => getEscalationQueue().then(setItems).catch(() => {});
 
   useEffect(() => {
@@ -13,8 +14,14 @@ export function EscalationQueue() {
   }, []);
 
   const resolve = async (d: Decision, r: "approved" | "overridden") => {
-    await resolveEscalation(d, r);
-    load();
+    setBusy(d.id);
+    try {
+      await resolveEscalation(d, r);
+      load();
+      onResolve?.();   // refresh the whole dashboard so trust + ladder update instantly
+    } finally {
+      setBusy(null);
+    }
   };
 
   return (
@@ -42,8 +49,8 @@ export function EscalationQueue() {
               </div>
               <p className="escalate-action">{d.action}</p>
               <div className="escalate-btns">
-                <button className="btn btn-green" onClick={() => resolve(d, "approved")}>Approve</button>
-                <button className="btn btn-red"   onClick={() => resolve(d, "overridden")}>Override</button>
+                <button className="btn btn-green" disabled={busy === d.id} onClick={() => resolve(d, "approved")}>Approve</button>
+                <button className="btn btn-red"   disabled={busy === d.id} onClick={() => resolve(d, "overridden")}>Override</button>
               </div>
             </li>
           ))}
