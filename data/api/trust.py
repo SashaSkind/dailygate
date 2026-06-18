@@ -309,9 +309,12 @@ def recompute(conn, category: str, tenant: str = "demo",
     old_level = t["trust_level"]
     old_score = float(t.get("trust_score") or 0.5)
 
-    # Immediate demotion: most recent decision was an override
+    # Immediate demotion: most recent decision was an override.
+    # rowid breaks timestamp ties deterministically — without it, several decisions
+    # in the same clock-second order arbitrarily and an override can be missed.
     latest = conn.execute(
-        "SELECT manager_response FROM decision WHERE category=? AND tenant=? ORDER BY timestamp DESC LIMIT 1",
+        "SELECT manager_response FROM decision WHERE category=? AND tenant=? "
+        "ORDER BY timestamp DESC, rowid DESC LIMIT 1",
         (category, tenant),
     ).fetchone()
     immediate_demotion = bool(
@@ -414,7 +417,7 @@ def explain(conn, category: str, tenant: str = "demo") -> Dict[str, Any]:
 
     recent_decisions = conn.execute(
         """SELECT manager_response, was_autonomous, timestamp
-           FROM decision WHERE category=? AND tenant=? ORDER BY timestamp DESC LIMIT 10""",
+           FROM decision WHERE category=? AND tenant=? ORDER BY timestamp DESC, rowid DESC LIMIT 10""",
         (category, tenant),
     ).fetchall()
 

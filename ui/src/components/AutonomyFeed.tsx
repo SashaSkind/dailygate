@@ -29,7 +29,7 @@ export function AutonomyFeed() {
       </div>
 
       {items.length === 0 ? (
-        <p className="empty">No autonomous actions yet.</p>
+        <p className="empty">Nothing yet — as a category earns L2, the agent's solo actions land here.</p>
       ) : (
         <ul className="feed-list scroll-list">
           {items.map((d) => (

@@ -23,12 +23,14 @@ export default function App() {
   const [tenant, setTenant] = useState<string | null>(null);
   const [toast, setToast]   = useState<TrustChange | null>(null);
   const [onboard, setOnboard] = useState<boolean>(!hasTrustKey());
+  const [loaded, setLoaded] = useState(false);
 
   // Remember each category's tier so we can detect promotions/demotions between snapshots.
   const prevLevels = useRef<Map<string, number> | null>(null);
 
   const onTrust = useCallback((snap: ContextSnapshot) => {
     setCtx(snap);
+    setLoaded(true);
     const next = new Map(snap.trust.map((t) => [t.category, effLevel(t)]));
     const prev = prevLevels.current;
     if (prev) {
@@ -53,7 +55,7 @@ export default function App() {
 
   const reload = useCallback(() => {
     setErr(null);
-    getContext().then(onTrust).catch((e) => setErr(String(e)));
+    getContext().then(onTrust).catch((e) => { setErr(String(e)); setLoaded(true); });
     getStats().then(setStats).catch(() => {});
     whoami().then((r) => setTenant(r.tenant)).catch(() => setTenant(null));
   }, [onTrust]);
@@ -71,6 +73,7 @@ export default function App() {
   const enterWorkspace = useCallback((_key: string) => {
     setCtx(null);
     setStats(null);
+    setLoaded(false);
     resetTrustBaseline();
     setToast(null);
     setOnboard(false);
@@ -134,19 +137,28 @@ export default function App() {
 
       <LoopDiagram />
 
-      <div className="main-grid">
-        <div>
-          <ExecutionPanel onComplete={reload} />
-          <WorkItemList items={ctx?.work_items ?? []} workload={ctx?.workload ?? []} onGather={reload} />
-          <EscalationQueue onResolve={reload} />
-          <AutonomyFeed />
+      {!loaded && !err ? (
+        <div className="dash-loading">
+          <div className="step-spinner">
+            <div className="spinner-dot" /><div className="spinner-dot" /><div className="spinner-dot" />
+            <span>Loading workspace…</span>
+          </div>
         </div>
-        <div>
-          <TrustLadder trust={trust} onTeach={reload} />
-          <TimeSavings stats={stats} trust={trust} />
-          <TrustEventStream />
+      ) : (
+        <div className="main-grid">
+          <div>
+            <ExecutionPanel onComplete={reload} />
+            <WorkItemList items={ctx?.work_items ?? []} workload={ctx?.workload ?? []} onGather={reload} />
+            <EscalationQueue onResolve={reload} />
+            <AutonomyFeed />
+          </div>
+          <div>
+            <TrustLadder trust={trust} onTeach={reload} />
+            <TimeSavings stats={stats} trust={trust} />
+            <TrustEventStream />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
