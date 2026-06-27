@@ -5,3 +5,7 @@ __pycache__/
 *.db-shm
 *.db-wal
 .env
+# Host configs / dev helpers not needed at runtime
+fly.toml
+start.sh
+dailygate-trust.openapi.yaml

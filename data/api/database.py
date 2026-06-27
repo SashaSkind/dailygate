@@ -14,7 +14,10 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
-DB_PATH = Path(__file__).parent / "dailygate.db"
+# Writable location for the SQLite file. Override with DAILYGATE_DB on hosts where
+# the app directory isn't writable; defaults next to the code (works on HF Spaces,
+# where the image dir is chowned to the runtime user).
+DB_PATH = Path(os.environ.get("DAILYGATE_DB", str(Path(__file__).parent / "dailygate.db")))
 
 # The demo tenant + its key. Kept stable so the showcase integration keeps working.
 DEMO_TENANT = "demo"

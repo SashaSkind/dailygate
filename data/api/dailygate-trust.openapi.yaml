@@ -4,7 +4,7 @@ info:
   version: 1.1.0
   description: Live Bayesian trust — the earned autonomy level per category. Multi-tenant.
 servers:
-  - url: https://engage-batman-suffered-jack.trycloudflare.com
+  - url: https://SashaSk-dailygate-trust.hf.space
 # Every call is scoped to the tenant that owns the X-Trust-Key. Each org connects
 # this integration with its OWN key, so the agent only ever sees that org's trust.
 security:
